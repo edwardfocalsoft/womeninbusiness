@@ -68,12 +68,11 @@ export default function Auth() {
           password,
           options: {
             data: { full_name: signUpFullName },
-            emailRedirectTo: window.location.origin,
           },
         });
 
         if (error) throw error;
-        toast.success('Account created! Check your email to confirm.');
+        toast.success('Account created! Signing you in...');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
