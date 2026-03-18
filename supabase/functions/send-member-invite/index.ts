@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const DEFAULT_SITE_URL = 'https://womeninbusiness.livents.co.za';
+
+const getSiteUrl = () => {
+  const configured = (Deno.env.get('PUBLIC_SITE_URL') || DEFAULT_SITE_URL).trim();
+  return configured.endsWith('/') ? configured.slice(0, -1) : configured;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -19,55 +26,49 @@ serve(async (req) => {
     // Verify the caller is an admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) throw new Error('Not authenticated');
-    
+
     const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!);
-    const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace('Bearer ', ''));
+    const {
+      data: { user },
+      error: authError,
+    } = await anonClient.auth.getUser(authHeader.replace('Bearer ', ''));
+
     if (authError || !user) throw new Error('Not authenticated');
-    
+
     const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id);
-    if (!roles?.some(r => r.role === 'admin')) throw new Error('Not authorized');
+    if (!roles?.some((r) => r.role === 'admin')) throw new Error('Not authorized');
 
     const { email, full_name, plan, purchase_date, send_email } = await req.json();
     if (!email || !full_name) throw new Error('Email and full name are required');
 
-    const siteUrl = req.headers.get('origin') || 'https://wibmembers.lovable.app';
-    const onboardingUrl = `${siteUrl}/auth?tab=signup&email=${encodeURIComponent(email)}&invited=true`;
+    const siteUrl = getSiteUrl();
+    const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}`;
 
     // Check admin settings for email invite toggle
-    const { data: settings } = await supabase.from('admin_settings').select('send_invite_emails').eq('id', 1).single();
-    const shouldSendEmail = send_email !== false && (settings?.send_invite_emails !== false);
+    const { data: settings } = await supabase
+      .from('admin_settings')
+      .select('send_invite_emails')
+      .eq('id', 1)
+      .single();
+
+    const shouldSendEmail = send_email !== false && settings?.send_invite_emails !== false;
 
     if (shouldSendEmail) {
-      // Send invite via Supabase auth admin (creates user + sends invite email)
-      const { data: inviteData, error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
-        data: { full_name, invited: true },
-        redirectTo: `${siteUrl}/onboarding`,
-      });
-
-      if (inviteError) {
-        console.error('Invite error:', inviteError);
-        // If user already exists, just send the transactional email
-        if (inviteError.message.includes('already been registered')) {
-          // Send transactional invite email instead
-          await sendTransactionalInvite(supabase, email, full_name, plan, purchase_date, onboardingUrl);
-        } else {
-          throw new Error(`Failed to send invite: ${inviteError.message}`);
-        }
-      }
-
-      // Also send the branded transactional invite email
       await sendTransactionalInvite(supabase, email, full_name, plan, purchase_date, onboardingUrl);
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      message: shouldSendEmail ? `Invite sent to ${email}` : `Member added (email invite disabled)`,
-      emailSent: shouldSendEmail,
-      onboardingUrl,
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: shouldSendEmail ? `Invite sent to ${email}` : `Member added (email invite disabled)`,
+        emailSent: shouldSendEmail,
+        onboardingUrl,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      },
+    );
   } catch (error: unknown) {
     console.error('Error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -79,12 +80,12 @@ serve(async (req) => {
 });
 
 async function sendTransactionalInvite(
-  supabase: any, 
-  email: string, 
-  fullName: string, 
-  plan: string, 
-  purchaseDate: string, 
-  onboardingUrl: string
+  supabase: any,
+  email: string,
+  fullName: string,
+  plan: string,
+  purchaseDate: string,
+  onboardingUrl: string,
 ) {
   const LOGO_URL = 'https://mywbsqmluljyyfvpfbqv.supabase.co/storage/v1/object/public/email-assets/wib-logo.png';
   const SITE_NAME = 'Women In Business';

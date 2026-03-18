@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -27,61 +27,97 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const syncIdRef = useRef(0);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setSession(session);
-      if (session?.user) {
-        await checkRoles(session.user.id);
-      } else {
-        setIsAdmin(false);
-        setIsMember(false);
-      }
-      setLoading(false);
-    });
+  const fetchRoleFlags = useCallback(async (userId: string) => {
+    const [rolesResult, membershipResult] = await Promise.all([
+      supabase.from('user_roles').select('role').eq('user_id', userId),
+      supabase
+        .from('memberships')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .maybeSingle(),
+    ]);
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        await checkRoles(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return {
+      isAdmin: rolesResult.data?.some((row) => row.role === 'admin') ?? false,
+      isMember: Boolean(membershipResult.data),
+    };
   }, []);
 
-  const checkRoles = async (userId: string) => {
-    const { data: roles } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId);
-    
-    setIsAdmin(roles?.some(r => r.role === 'admin') ?? false);
-    
-    const { data: membership } = await supabase
-      .from('memberships')
-      .select('status')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle();
-    
-    setIsMember(!!membership);
-  };
+  const syncAuthState = useCallback(
+    async (nextSession: Session | null) => {
+      const syncId = ++syncIdRef.current;
+      setLoading(true);
+      setSession(nextSession);
+
+      if (!nextSession?.user) {
+        if (syncId !== syncIdRef.current) return;
+        setIsAdmin(false);
+        setIsMember(false);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const flags = await fetchRoleFlags(nextSession.user.id);
+        if (syncId !== syncIdRef.current) return;
+        setIsAdmin(flags.isAdmin);
+        setIsMember(flags.isMember);
+      } catch (error) {
+        console.error('Failed to load role flags', error);
+        if (syncId !== syncIdRef.current) return;
+        setIsAdmin(false);
+        setIsMember(false);
+      } finally {
+        if (syncId === syncIdRef.current) {
+          setLoading(false);
+        }
+      }
+    },
+    [fetchRoleFlags],
+  );
+
+  useEffect(() => {
+    let active = true;
+
+    const handleSession = (nextSession: Session | null) => {
+      if (!active) return;
+      void syncAuthState(nextSession);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      handleSession(nextSession);
+    });
+
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      handleSession(currentSession);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [syncAuthState]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{
-      session,
-      user: session?.user ?? null,
-      loading,
-      isAdmin,
-      isMember,
-      signOut,
-    }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user: session?.user ?? null,
+        loading,
+        isAdmin,
+        isMember,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
