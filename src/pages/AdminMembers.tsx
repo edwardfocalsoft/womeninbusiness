@@ -57,7 +57,7 @@ export default function AdminMembers() {
   };
 
   const fetchPending = async () => {
-    const { data } = await supabase.from('pending_members').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('pending_members').select('*').eq('status', 'pending').order('created_at', { ascending: false });
     setPendingMembers(data || []);
   };
 
