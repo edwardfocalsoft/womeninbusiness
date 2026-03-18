@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Download, UserPlus, Bell } from 'lucide-react';
+import { Search, Download, UserPlus, Bell, Mail, MailX } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 export default function AdminMembers() {
@@ -22,12 +23,30 @@ export default function AdminMembers() {
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ full_name: '', email: '', plan: 'monthly' as 'monthly' | 'annual', purchase_date: new Date().toISOString().split('T')[0] });
   const [addLoading, setAddLoading] = useState(false);
+  const [sendInviteEmails, setSendInviteEmails] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
-  useEffect(() => { if (isAdmin) { fetchMembers(); fetchPending(); } }, [isAdmin]);
+  useEffect(() => { if (isAdmin) { fetchMembers(); fetchPending(); fetchSettings(); } }, [isAdmin]);
+
+  const fetchSettings = async () => {
+    const { data } = await supabase.from('admin_settings').select('send_invite_emails').eq('id', 1).single();
+    if (data) setSendInviteEmails(data.send_invite_emails);
+  };
+
+  const toggleInviteEmails = async (checked: boolean) => {
+    setSettingsLoading(true);
+    const { error } = await supabase.from('admin_settings').update({ send_invite_emails: checked }).eq('id', 1);
+    if (error) {
+      toast.error('Failed to update setting');
+    } else {
+      setSendInviteEmails(checked);
+      toast.success(checked ? 'Email invites enabled' : 'Email invites disabled — use manual invites');
+    }
+    setSettingsLoading(false);
+  };
 
   const fetchMembers = async () => {
-    // Fetch memberships and profiles separately, then merge
     const { data: memberships } = await supabase.from('memberships').select('*').order('created_at', { ascending: false });
     const { data: profiles } = await supabase.from('profiles').select('*');
     const merged = (memberships || []).map(m => ({
@@ -74,16 +93,24 @@ export default function AdminMembers() {
 
       if (error) throw error;
 
-      // Send invite email
-      const { data: { session } } = await supabase.auth.getSession();
+      // Send invite email (respects admin toggle)
       const inviteRes = await supabase.functions.invoke('send-member-invite', {
-        body: { email: addForm.email, full_name: addForm.full_name, plan: addForm.plan },
+        body: { 
+          email: addForm.email, 
+          full_name: addForm.full_name, 
+          plan: addForm.plan,
+          purchase_date: format(purchaseDate, 'dd MMM yyyy'),
+          send_email: sendInviteEmails,
+        },
       });
       
       if (inviteRes.error) {
-        toast.warning(`Member added but invite email failed: ${inviteRes.error.message}`);
+        toast.warning(`Member added but invite failed: ${inviteRes.error.message}`);
       } else {
-        toast.success(`Member ${addForm.full_name} added and invite sent to ${addForm.email}.`);
+        const msg = sendInviteEmails 
+          ? `Member ${addForm.full_name} added and invite sent to ${addForm.email}.`
+          : `Member ${addForm.full_name} added (email invite disabled).`;
+        toast.success(msg);
       }
 
       setAddOpen(false);
@@ -93,6 +120,24 @@ export default function AdminMembers() {
       toast.error(err.message);
     }
     setAddLoading(false);
+  };
+
+  const handleResendInvite = async (pm: any) => {
+    try {
+      const res = await supabase.functions.invoke('send-member-invite', {
+        body: { 
+          email: pm.email, 
+          full_name: pm.full_name, 
+          plan: pm.plan,
+          purchase_date: format(new Date(pm.purchase_date), 'dd MMM yyyy'),
+          send_email: true,
+        },
+      });
+      if (res.error) throw new Error(res.error.message);
+      toast.success(`Invite resent to ${pm.email}`);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
   };
 
   const exportCSV = () => {
@@ -111,7 +156,6 @@ export default function AdminMembers() {
   };
 
   const handleSendReminders = async () => {
-    // Find members expiring within 30 days
     const now = new Date();
     const expiringMembers = members.filter(m => {
       const daysLeft = differenceInDays(new Date(m.expires_at), now);
@@ -126,13 +170,33 @@ export default function AdminMembers() {
     let sent = 0;
     for (const m of expiringMembers) {
       const daysLeft = differenceInDays(new Date(m.expires_at), now);
-      const { error } = await supabase.from('notifications').insert({
+      const profile = (m as any).profiles;
+      
+      // Send in-app notification
+      await supabase.from('notifications').insert({
         user_id: m.user_id,
         title: 'Membership Expiring Soon',
         message: `Your ${m.plan} membership expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''} on ${format(new Date(m.expires_at), 'dd MMM yyyy')}. Please renew to keep your benefits.`,
         type: 'renewal_reminder',
       });
-      if (!error) sent++;
+
+      // Send email reminder
+      if (profile?.full_name) {
+        await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            template: 'expiry-reminder',
+            to: profile.user_id ? (await supabase.auth.admin?.getUserById?.(m.user_id))?.data?.user?.email : undefined,
+            data: {
+              full_name: profile.full_name,
+              plan: m.plan,
+              days_left: daysLeft,
+              expires_at: format(new Date(m.expires_at), 'dd MMM yyyy'),
+              renew_url: `${window.location.origin}/onboarding`,
+            },
+          },
+        });
+      }
+      sent++;
     }
     toast.success(`Renewal reminders sent to ${sent} member${sent !== 1 ? 's' : ''}.`);
   };
@@ -158,44 +222,57 @@ export default function AdminMembers() {
             <h1 className="text-2xl sm:text-3xl font-bold mb-1">Manage Members</h1>
             <p className="text-muted-foreground text-sm">View and manage all memberships.</p>
           </div>
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2"><UserPlus className="w-4 h-4" /> Add Member</Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-[5px]">
-              <DialogHeader>
-                <DialogTitle>Add New Member</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 pt-2">
-                <div>
-                  <Label>Full Name</Label>
-                  <Input value={addForm.full_name} onChange={e => setAddForm(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. Jane Doe" />
+          <div className="flex items-center gap-3">
+            {/* Email Invite Toggle */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-[5px] border border-border bg-card">
+              {sendInviteEmails ? <Mail className="w-4 h-4 text-primary" /> : <MailX className="w-4 h-4 text-muted-foreground" />}
+              <span className="text-xs text-muted-foreground hidden sm:inline">{sendInviteEmails ? 'Emails On' : 'Emails Off'}</span>
+              <Switch checked={sendInviteEmails} onCheckedChange={toggleInviteEmails} disabled={settingsLoading} />
+            </div>
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2"><UserPlus className="w-4 h-4" /> Add Member</Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-[5px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Member</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Full Name</Label>
+                    <Input value={addForm.full_name} onChange={e => setAddForm(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. Jane Doe" />
+                  </div>
+                  <div>
+                    <Label>Email Address</Label>
+                    <Input type="email" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} placeholder="e.g. jane@example.com" />
+                  </div>
+                  <div>
+                    <Label>Plan</Label>
+                    <Select value={addForm.plan} onValueChange={v => setAddForm(p => ({ ...p, plan: v as 'monthly' | 'annual' }))}>
+                      <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="monthly">Monthly — R50/mo</SelectItem>
+                        <SelectItem value="annual">Annual — R500/yr</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Membership Date</Label>
+                    <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
+                  </div>
+                  {!sendInviteEmails && (
+                    <div className="flex items-start gap-2 p-3 rounded-[5px] bg-amber-50 border border-amber-200">
+                      <MailX className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">Email invites are disabled. The member will be added but no invitation email will be sent. You can send it manually later.</p>
+                    </div>
+                  )}
+                  <Button className="w-full" onClick={handleAddMember} disabled={addLoading}>
+                    {addLoading ? 'Adding...' : sendInviteEmails ? 'Add & Send Invite' : 'Add Member'}
+                  </Button>
                 </div>
-                <div>
-                  <Label>Email Address</Label>
-                  <Input type="email" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} placeholder="e.g. jane@example.com" />
-                  
-                </div>
-                <div>
-                  <Label>Plan</Label>
-                  <Select value={addForm.plan} onValueChange={v => setAddForm(p => ({ ...p, plan: v as 'monthly' | 'annual' }))}>
-                    <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly — R50/mo</SelectItem>
-                      <SelectItem value="annual">Annual — R500/yr</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Membership Date</Label>
-                  <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
-                </div>
-                <Button className="w-full" onClick={handleAddMember} disabled={addLoading}>
-                  {addLoading ? 'Adding...' : 'Add Member'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -203,7 +280,7 @@ export default function AdminMembers() {
             { label: 'Total', value: members.length + pendingMembers.length, color: 'text-primary' },
             { label: 'Active', value: activeCount, color: 'text-green-600' },
             { label: 'Expired', value: expiredCount, color: 'text-amber-600' },
-            { label: 'Cancelled', value: cancelledCount, color: 'text-red-600' },
+            { label: 'Cancelled', value: cancelledCount, color: 'text-destructive' },
           ].map(s => (
             <div key={s.label} className="rounded-[5px] border border-border bg-card p-4 shadow-sm">
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -279,6 +356,9 @@ export default function AdminMembers() {
                         <span>Purchased: {format(new Date(pm.purchase_date), 'dd MMM yyyy')}</span>
                       </div>
                     </div>
+                    <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => handleResendInvite(pm)}>
+                      <Mail className="w-3 h-3" /> Resend Invite
+                    </Button>
                   </div>
                 </div>
               ))}
