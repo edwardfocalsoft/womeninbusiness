@@ -27,6 +27,7 @@ import AdminAnnouncements from "./pages/AdminAnnouncements";
 import AdminResources from "./pages/AdminResources";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSettings from "./pages/AdminSettings";
+import AdminPayments from "./pages/AdminPayments";
 import Onboarding from "./pages/Onboarding";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
