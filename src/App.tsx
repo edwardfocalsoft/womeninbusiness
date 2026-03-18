@@ -19,7 +19,7 @@ import Membership from "./pages/Membership";
 import Settings from "./pages/Settings";
 import Help from "./pages/Help";
 import Feedback from "./pages/Feedback";
-import Admin from "./pages/Admin";
+import AdminAuth from "./pages/AdminAuth";
 import AdminMembers from "./pages/AdminMembers";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminEvents from "./pages/AdminEvents";
