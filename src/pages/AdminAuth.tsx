@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -13,31 +13,46 @@ export default function AdminAuth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  // Track whether the user just submitted the login form on this page
+  const didSubmitRef = useRef(false);
 
   useEffect(() => {
+    // Don't act while auth state is still resolving
     if (authLoading) return;
+
     if (user && isAdmin) {
       navigate('/admin/members');
-    } else if (user && !isAdmin) {
+      return;
+    }
+
+    // Only show the "no admin access" error if the user explicitly
+    // submitted the login form on this page. This avoids the flash
+    // when auth state is still settling after sign-in.
+    if (user && !isAdmin && didSubmitRef.current) {
       toast.error('You do not have admin access.');
       supabase.auth.signOut();
+      didSubmitRef.current = false;
     }
   }, [user, isAdmin, authLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setSubmitting(true);
+    didSubmitRef.current = true;
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      // Redirect handled by useEffect
+      if (error) {
+        didSubmitRef.current = false;
+        throw error;
+      }
+      // Redirect handled by useEffect once auth + roles resolve
     } catch (err: any) {
       toast.error(err.message);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -69,8 +84,8 @@ export default function AdminAuth() {
               </button>
             </div>
           </div>
-          <Button type="submit" className="w-full font-semibold" disabled={loading}>
-            {loading ? 'Authenticating...' : 'Sign In as Admin'}
+          <Button type="submit" className="w-full font-semibold" disabled={submitting}>
+            {submitting ? 'Authenticating...' : 'Sign In as Admin'}
           </Button>
         </form>
         <p className="text-center text-xs text-muted-foreground mt-6">
