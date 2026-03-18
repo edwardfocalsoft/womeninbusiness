@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
 
         await sendLovableEmail(
           emailPayload as any,
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+          { apiKey }
         )
 
         // Log success
