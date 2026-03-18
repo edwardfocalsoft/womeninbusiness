@@ -19,7 +19,20 @@ export default function Auth() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => { if (user) navigate(isAdmin ? '/admin/members' : '/dashboard'); }, [user, isAdmin, navigate]);
+  useEffect(() => {
+    if (!user) return;
+    if (isAdmin) { navigate('/admin/members'); return; }
+    // Check if user needs onboarding
+    const checkOnboarding = async () => {
+      const { data: profile } = await supabase.from('profiles').select('onboarding_completed').eq('user_id', user.id).single();
+      if (!profile?.onboarding_completed) {
+        navigate('/onboarding');
+      } else {
+        navigate('/dashboard');
+      }
+    };
+    checkOnboarding();
+  }, [user, isAdmin, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
