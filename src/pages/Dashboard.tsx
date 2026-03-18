@@ -33,12 +33,21 @@ export default function Dashboard() {
   const fetchData = async () => {
     if (!user) return;
     const [profileRes, membershipRes, announcementsRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('memberships').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
     ]);
-    setProfile(profileRes.data);
-    setMembership(membershipRes.data);
+
+    // Redirect to onboarding if profile incomplete or no active membership
+    const p = profileRes.data;
+    const m = membershipRes.data;
+    if (!p?.onboarding_completed || !m || m.status !== 'active' || new Date(m.expires_at) < new Date()) {
+      navigate('/onboarding', { replace: true });
+      return;
+    }
+
+    setProfile(p);
+    setMembership(m);
     setAnnouncements(announcementsRes.data || []);
     setLoading(false);
   };
