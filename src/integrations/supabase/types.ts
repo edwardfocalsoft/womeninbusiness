@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_settings: {
+        Row: {
+          annual_price: number
+          id: number
+          monthly_price: number
+          org_email: string
+          org_name: string
+          send_invite_emails: boolean
+          updated_at: string
+        }
+        Insert: {
+          annual_price?: number
+          id?: number
+          monthly_price?: number
+          org_email?: string
+          org_name?: string
+          send_invite_emails?: boolean
+          updated_at?: string
+        }
+        Update: {
+          annual_price?: number
+          id?: number
+          monthly_price?: number
+          org_email?: string
+          org_name?: string
+          send_invite_emails?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           content: string
@@ -257,6 +287,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          membership_id: string | null
+          net_amount: number
+          payfast_payment_id: string | null
+          payment_method: string
+          payment_reference: string | null
+          plan: string
+          status: string
+          transaction_fee: number | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          membership_id?: string | null
+          net_amount: number
+          payfast_payment_id?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          plan: string
+          status?: string
+          transaction_fee?: number | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          membership_id?: string | null
+          net_amount?: number
+          payfast_payment_id?: string | null
+          payment_method?: string
+          payment_reference?: string | null
+          plan?: string
+          status?: string
+          transaction_fee?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pending_members: {
         Row: {
           added_by: string | null
@@ -300,6 +383,7 @@ export type Database = {
           id: string
           industry: string | null
           location: string | null
+          onboarding_completed: boolean | null
           phone: string | null
           products_services: string | null
           updated_at: string
@@ -315,6 +399,7 @@ export type Database = {
           id?: string
           industry?: string | null
           location?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           products_services?: string | null
           updated_at?: string
@@ -330,6 +415,7 @@ export type Database = {
           id?: string
           industry?: string | null
           location?: string | null
+          onboarding_completed?: boolean | null
           phone?: string | null
           products_services?: string | null
           updated_at?: string
