@@ -47,6 +47,11 @@ serve(async (req) => {
       req.headers.get('x-request-id') ||
       null;
 
+    console.log('Invite request run context', {
+      runIdFromRequest,
+      headerKeys: Array.from(req.headers.keys()),
+    });
+
     const siteUrl = getSiteUrl();
     const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}`;
 
