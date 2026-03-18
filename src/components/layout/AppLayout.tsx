@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 
 const publicRoutes = ['/', '/auth', '/membership'];
+const bareRoutes = ['/onboarding', '/reset-password'];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -17,8 +18,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<ReactNode>(null);
 
   const isPublic = publicRoutes.includes(location.pathname);
+  const isBare = bareRoutes.includes(location.pathname);
   const isAdminRoute = location.pathname.startsWith('/admin');
-  const showSidebar = user && !isPublic;
+  const showSidebar = user && !isPublic && !isBare;
 
   useEffect(() => {
     setShowPreloader(true);
@@ -54,6 +56,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </SidebarProvider>
+    );
+  }
+
+  if (isBare) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
+        <main className="flex-1">{showPreloader ? null : content}</main>
+      </div>
     );
   }
 
