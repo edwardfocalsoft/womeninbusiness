@@ -1,5 +1,5 @@
 import {
-  Users, BarChart3, Calendar, Megaphone, BookOpen, Shield, Settings, UserCog,
+  Users, BarChart3, Calendar, Megaphone, BookOpen, Shield, Settings, UserCog, CreditCard,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
