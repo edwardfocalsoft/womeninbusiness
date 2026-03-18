@@ -6,11 +6,40 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2 } from 'lucide-react';
 import wibLogo from '@/assets/wib-logo.png';
 
 type OnboardingStep = 'payment' | 'business-details' | 'complete';
+
+const INDUSTRIES = [
+  'Agriculture',
+  'Arts & Entertainment',
+  'Beauty & Wellness',
+  'Construction',
+  'Consulting',
+  'Education & Training',
+  'Engineering',
+  'Fashion & Textiles',
+  'Finance & Accounting',
+  'Food & Beverage',
+  'Healthcare',
+  'Hospitality & Tourism',
+  'Information Technology',
+  'Legal Services',
+  'Manufacturing',
+  'Marketing & Advertising',
+  'Media & Communications',
+  'Mining',
+  'Non-Profit',
+  'Real Estate',
+  'Retail',
+  'Social Services',
+  'Sports & Recreation',
+  'Transport & Logistics',
+  'Other',
+];
 
 function CompleteStep({ navigate }: { navigate: (path: string) => void }) {
   const [countdown, setCountdown] = useState(5);
@@ -52,6 +81,7 @@ export default function Onboarding() {
   const [membership, setMembership] = useState<any>(null);
   const [pendingMember, setPendingMember] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly');
   const [businessForm, setBusinessForm] = useState({
     business_name: '',
     industry: '',
@@ -64,7 +94,6 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (authLoading) return;
-    // Admins don't need onboarding — send them to admin panel
     if (isAdmin) {
       navigate('/admin/members', { replace: true });
       return;
@@ -89,6 +118,10 @@ export default function Onboarding() {
     setMembership(membershipRes.data);
     setPendingMember(pendingRes.data);
 
+    if (pendingRes.data?.plan) {
+      setSelectedPlan(pendingRes.data.plan as 'monthly' | 'annual');
+    }
+
     if (profileRes.data) {
       setBusinessForm({
         business_name: profileRes.data.business_name || '',
@@ -101,24 +134,18 @@ export default function Onboarding() {
       });
     }
 
-    // Determine step
     const m = membershipRes.data;
     if (m && m.status === 'active' && new Date(m.expires_at) >= new Date()) {
-      // Active membership - check if onboarding completed
       if (profileRes.data?.onboarding_completed) {
         navigate('/dashboard');
         return;
       }
-      // Skip to business details
       setStep('business-details');
     } else if (m && (m.status === 'expired' || new Date(m.expires_at) < new Date())) {
-      // Expired membership - needs renewal
       setStep('payment');
     } else if (!m && pendingRes.data) {
-      // New member via invite - needs payment
       setStep('payment');
     } else if (!m) {
-      // No membership at all
       setStep('payment');
     } else {
       setStep('business-details');
@@ -131,17 +158,15 @@ export default function Onboarding() {
     setActionLoading(true);
 
     try {
-      const plan = pendingMember?.plan || 'monthly';
+      const plan = selectedPlan;
       const baseAmount = plan === 'annual' ? 500 : 50;
 
       if (method === 'payfast') {
-        // PayFast integration - calculate 8% fee
         const transactionFee = Math.round(baseAmount * 0.08 * 100) / 100;
         const totalAmount = baseAmount + transactionFee;
 
-        // Create PayFast payment URL
-        const merchantId = '10000100'; // Sandbox - will be replaced with real ID
-        const merchantKey = '46f0cd694581a'; // Sandbox - will be replaced with real key
+        const merchantId = '10000100';
+        const merchantKey = '46f0cd694581a';
         const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
 
         const payfastData: Record<string, string> = {
@@ -159,7 +184,6 @@ export default function Onboarding() {
           item_description: `Women In Business ${plan} membership (incl. ${transactionFee.toFixed(2)} transaction fee)`,
         };
 
-        // Record pending payment
         await supabase.from('payments').insert({
           user_id: user.id,
           amount: totalAmount,
@@ -171,10 +195,9 @@ export default function Onboarding() {
           plan,
         });
 
-        // Build form and submit to PayFast
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = 'https://sandbox.payfast.co.za/eng/process'; // Use sandbox for now
+        form.action = 'https://sandbox.payfast.co.za/eng/process';
         Object.entries(payfastData).forEach(([key, value]) => {
           const input = document.createElement('input');
           input.type = 'hidden';
@@ -187,7 +210,7 @@ export default function Onboarding() {
         return;
       }
 
-      // Offline payment - record and show instructions
+      // Offline payment
       await supabase.from('payments').insert({
         user_id: user.id,
         amount: baseAmount,
@@ -198,9 +221,7 @@ export default function Onboarding() {
         plan,
       });
 
-      // For offline, admin will activate. Show banking details
-      toast.success('Payment recorded! Please complete your EFT payment using the banking details shown.');
-
+      toast.success('Payment recorded! Please complete your EFT payment using the banking details shown. Admin will verify and activate your membership.');
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -223,7 +244,6 @@ export default function Onboarding() {
         ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Create or update membership
       if (membership) {
         await supabase.from('memberships').update({
           status: 'active',
@@ -241,18 +261,15 @@ export default function Onboarding() {
         });
       }
 
-      // Add member role
       await supabase.from('user_roles').upsert({
         user_id: user.id,
         role: 'member' as const,
       }, { onConflict: 'user_id,role' });
 
-      // Mark pending member as claimed
       if (pendingMember) {
         await supabase.from('pending_members').update({ status: 'claimed' }).eq('id', pendingMember.id);
       }
 
-      // Update payment status
       await supabase.from('payments').update({ status: 'completed' })
         .eq('user_id', user.id)
         .eq('status', 'pending');
@@ -269,27 +286,47 @@ export default function Onboarding() {
     if (!user) return;
     setActionLoading(true);
     try {
-      const { error } = await supabase.from('profiles').update({
-        ...businessForm,
-        onboarding_completed: true,
-      }).eq('user_id', user.id);
+      // Ensure profile exists (upsert)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (existingProfile) {
+        const { error } = await supabase.from('profiles').update({
+          ...businessForm,
+          onboarding_completed: true,
+        }).eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('profiles').insert({
+          user_id: user.id,
+          full_name: profile?.full_name || user.user_metadata?.full_name || '',
+          ...businessForm,
+          onboarding_completed: true,
+        });
+        if (error) throw error;
+      }
 
-      // Send welcome email
-      await supabase.functions.invoke('send-transactional-email', {
-        body: {
-          template: 'welcome',
-          to: user.email,
-          data: {
-            full_name: profile?.full_name || '',
-            member_id: membership?.member_id || '',
-            plan: membership?.plan || '',
-            expires_at: membership?.expires_at ? new Date(membership.expires_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
-            dashboard_url: `${window.location.origin}/dashboard`,
+      // Send welcome email (best effort)
+      try {
+        await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            template: 'welcome',
+            to: user.email,
+            data: {
+              full_name: profile?.full_name || '',
+              member_id: membership?.member_id || '',
+              plan: membership?.plan || selectedPlan,
+              expires_at: membership?.expires_at ? new Date(membership.expires_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' }) : '',
+              dashboard_url: `${window.location.origin}/dashboard`,
+            },
           },
-        },
-      });
+        });
+      } catch {
+        // Welcome email is non-critical
+      }
 
       setStep('complete');
       toast.success('Business details saved!');
@@ -308,8 +345,7 @@ export default function Onboarding() {
   }
 
   const isExpired = membership && (membership.status === 'expired' || new Date(membership.expires_at) < new Date());
-  const plan = pendingMember?.plan || membership?.plan || 'monthly';
-  const baseAmount = plan === 'annual' ? 500 : 50;
+  const baseAmount = selectedPlan === 'annual' ? 500 : 50;
   const payfastFee = Math.round(baseAmount * 0.08 * 100) / 100;
 
   return (
@@ -323,7 +359,7 @@ export default function Onboarding() {
              step === 'business-details' ? 'Complete Your Profile' : 'Welcome Aboard!'}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {step === 'payment' ? (isExpired ? 'Your membership has expired. Renew to continue.' : 'Complete payment to activate your membership.') :
+            {step === 'payment' ? (isExpired ? 'Your membership has expired. Renew to continue.' : 'Choose your plan and complete payment to get started.') :
              step === 'business-details' ? 'Tell us about your business to complete onboarding.' : "You're all set!"}
           </p>
         </div>
@@ -359,17 +395,48 @@ export default function Onboarding() {
               </div>
             )}
 
+            {/* Plan Selection */}
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('monthly')}
+                className={`rounded-[5px] border-2 p-4 text-center transition-all ${
+                  selectedPlan === 'monthly'
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'border-border bg-card hover:border-muted-foreground/30'
+                }`}
+              >
+                <p className="text-2xl font-bold text-foreground">R50</p>
+                <p className="text-sm text-muted-foreground">per month</p>
+                {selectedPlan === 'monthly' && (
+                  <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedPlan('annual')}
+                className={`rounded-[5px] border-2 p-4 text-center transition-all relative ${
+                  selectedPlan === 'annual'
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'border-border bg-card hover:border-muted-foreground/30'
+                }`}
+              >
+                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SAVE 17%</span>
+                <p className="text-2xl font-bold text-foreground">R500</p>
+                <p className="text-sm text-muted-foreground">per year</p>
+                {selectedPlan === 'annual' && (
+                  <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />
+                )}
+              </button>
+            </div>
+
             <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
               <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" /> 
-                {plan === 'annual' ? 'Annual' : 'Monthly'} Membership
+                <CreditCard className="w-5 h-5 text-primary" />
+                {selectedPlan === 'annual' ? 'Annual' : 'Monthly'} Membership
               </h2>
-              <div className="text-center py-4">
-                <p className="text-3xl font-bold text-primary">R{baseAmount}</p>
-                <p className="text-sm text-muted-foreground">{plan === 'annual' ? 'per year' : 'per month'}</p>
-              </div>
 
-              <div className="space-y-3 mt-4">
+              <div className="space-y-3">
                 <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} disabled={actionLoading}>
                   <CreditCard className="w-4 h-4" /> Pay with PayFast — R{(baseAmount + payfastFee).toFixed(2)}
                 </Button>
@@ -412,14 +479,44 @@ export default function Onboarding() {
             <p className="text-sm text-muted-foreground">These details help other members discover and connect with your business.</p>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div><Label>Business Name *</Label><Input value={businessForm.business_name} onChange={e => setBusinessForm(p => ({ ...p, business_name: e.target.value }))} placeholder="Your Business Name" /></div>
-              <div><Label>Industry *</Label><Input value={businessForm.industry} onChange={e => setBusinessForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Technology, Fashion" /></div>
-              <div><Label>Location</Label><Input value={businessForm.location} onChange={e => setBusinessForm(p => ({ ...p, location: e.target.value }))} placeholder="City, Province" /></div>
-              <div><Label>Phone</Label><Input value={businessForm.phone} onChange={e => setBusinessForm(p => ({ ...p, phone: e.target.value }))} placeholder="+27..." /></div>
-              <div className="sm:col-span-2"><Label>Website</Label><Input value={businessForm.website} onChange={e => setBusinessForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
+              <div>
+                <Label>Business Name *</Label>
+                <Input value={businessForm.business_name} onChange={e => setBusinessForm(p => ({ ...p, business_name: e.target.value }))} placeholder="Your Business Name" />
+              </div>
+              <div>
+                <Label>Industry *</Label>
+                <Select value={businessForm.industry} onValueChange={v => setBusinessForm(p => ({ ...p, industry: v }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRIES.map(ind => (
+                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Location</Label>
+                <Input value={businessForm.location} onChange={e => setBusinessForm(p => ({ ...p, location: e.target.value }))} placeholder="City, Province" />
+              </div>
+              <div>
+                <Label>Phone</Label>
+                <Input value={businessForm.phone} onChange={e => setBusinessForm(p => ({ ...p, phone: e.target.value }))} placeholder="+27..." />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Website</Label>
+                <Input value={businessForm.website} onChange={e => setBusinessForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" />
+              </div>
             </div>
-            <div><Label>Products / Services *</Label><Input value={businessForm.products_services} onChange={e => setBusinessForm(p => ({ ...p, products_services: e.target.value }))} placeholder="What does your business offer?" /></div>
-            <div><Label>Bio</Label><Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." /></div>
+            <div>
+              <Label>Products / Services *</Label>
+              <Input value={businessForm.products_services} onChange={e => setBusinessForm(p => ({ ...p, products_services: e.target.value }))} placeholder="What does your business offer?" />
+            </div>
+            <div>
+              <Label>Bio</Label>
+              <Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." />
+            </div>
 
             <Button className="w-full gap-2 font-semibold" onClick={handleSaveBusinessDetails} disabled={actionLoading || !businessForm.business_name || !businessForm.industry || !businessForm.products_services}>
               {actionLoading ? 'Saving...' : 'Continue'} <ArrowRight className="w-4 h-4" />
