@@ -398,16 +398,7 @@ export default function Onboarding() {
         )}
 
         {/* Complete Step */}
-        {step === 'complete' && (
-          <div className="rounded-[5px] border border-border bg-card p-8 shadow-sm text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-xl font-bold mb-2">You're All Set!</h2>
-            <p className="text-muted-foreground text-sm mb-6">Your profile is complete. Welcome to the Women In Business community!</p>
-            <Button className="gap-2" onClick={() => navigate('/dashboard')}>
-              Go to Dashboard <ArrowRight className="w-4 h-4" />
-            </Button>
-          </div>
-        )}
+        {step === 'complete' && <CompleteStep navigate={navigate} />}
       </div>
     </div>
   );

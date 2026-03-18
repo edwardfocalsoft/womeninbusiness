@@ -59,6 +59,15 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     );
   }
 
+  if (isBare) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
+        <main className="flex-1">{showPreloader ? null : content}</main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
