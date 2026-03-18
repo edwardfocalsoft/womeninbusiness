@@ -41,6 +41,12 @@ serve(async (req) => {
     const { email, full_name, plan, purchase_date, send_email } = await req.json();
     if (!email || !full_name) throw new Error('Email and full name are required');
 
+    const runIdFromRequest =
+      req.headers.get('x-lovable-run-id') ||
+      req.headers.get('x-run-id') ||
+      req.headers.get('x-request-id') ||
+      null;
+
     const siteUrl = getSiteUrl();
     const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}`;
 
@@ -54,7 +60,7 @@ serve(async (req) => {
     const shouldSendEmail = send_email !== false && settings?.send_invite_emails !== false;
 
     if (shouldSendEmail) {
-      await sendTransactionalInvite(supabase, email, full_name, plan, purchase_date, onboardingUrl);
+      await sendTransactionalInvite(supabase, email, full_name, plan, purchase_date, onboardingUrl, runIdFromRequest);
     }
 
     return new Response(
