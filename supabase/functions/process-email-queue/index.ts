@@ -242,19 +242,27 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const runId =
+          typeof payload?.run_id === 'string' && payload.run_id.trim().length > 0
+            ? payload.run_id
+            : typeof payload?.message_id === 'string' && payload.message_id.trim().length > 0
+              ? payload.message_id
+              : crypto.randomUUID()
+
         const emailPayload: Record<string, unknown> = {
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            message_id: payload.message_id,
-          }
+          to: payload.to,
+          from: payload.from,
+          sender_domain: payload.sender_domain,
+          subject: payload.subject,
+          html: payload.html,
+          text: payload.text,
+          purpose: payload.purpose,
+          label: payload.label,
+          message_id: payload.message_id,
+          run_id: runId,
+        }
+
         // Only include optional fields when present
-        if (payload.run_id) emailPayload.run_id = payload.run_id
         if (payload.idempotency_key) emailPayload.idempotency_key = payload.idempotency_key
         if (payload.unsubscribe_token) emailPayload.unsubscribe_token = payload.unsubscribe_token
 
