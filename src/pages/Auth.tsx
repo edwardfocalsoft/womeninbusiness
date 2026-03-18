@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail } from 'lucide-react';
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
@@ -15,11 +15,13 @@ export default function Auth() {
   const invitedFullName = searchParams.get('full_name') || '';
 
   const [isSignUp, setIsSignUp] = useState(invited || searchParams.get('tab') === 'signup');
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState(invitedFullName);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [signUpSuccess, setSignUpSuccess] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -50,6 +52,27 @@ export default function Auth() {
     checkOnboarding();
   }, [user, navigate]);
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success('Password reset link sent! Check your email.');
+      setIsForgotPassword(false);
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,11 +91,12 @@ export default function Auth() {
           password,
           options: {
             data: { full_name: signUpFullName },
+            emailRedirectTo: window.location.origin,
           },
         });
 
         if (error) throw error;
-        toast.success('Account created! Signing you in...');
+        setSignUpSuccess(true);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -83,6 +107,83 @@ export default function Auth() {
       setLoading(false);
     }
   };
+
+  // Show confirmation screen after signup
+  if (signUpSuccess) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
+        <div className="w-full max-w-md text-center">
+          <div className="rounded-[5px] bg-card border border-border p-8 shadow-sm space-y-4">
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold text-foreground">Check your email</h2>
+            <p className="text-muted-foreground text-sm">
+              We've sent a confirmation link to <strong>{invited ? invitedEmail : email}</strong>.
+              Please click the link to verify your account and sign in.
+            </p>
+            <Button
+              variant="outline"
+              className="w-full mt-4"
+              onClick={() => {
+                setSignUpSuccess(false);
+                setIsSignUp(false);
+                setPassword('');
+              }}
+            >
+              Back to Sign In
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Forgot password form
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-2">Women In Business</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Reset Password</h1>
+            <p className="text-muted-foreground text-sm">
+              Enter your email and we'll send you a reset link
+            </p>
+          </div>
+
+          <form onSubmit={handleForgotPassword} className="rounded-[5px] bg-card border border-border p-6 sm:p-8 space-y-4 shadow-sm">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
+
+            <Button type="submit" className="w-full font-semibold" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Reset Link'}
+            </Button>
+
+            <p className="text-center text-sm text-muted-foreground">
+              Remember your password?{' '}
+              <button
+                type="button"
+                className="text-primary font-semibold hover:underline"
+                onClick={() => setIsForgotPassword(false)}
+              >
+                Sign In
+              </button>
+            </p>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
@@ -148,6 +249,18 @@ export default function Auth() {
               </button>
             </div>
           </div>
+
+          {!isSignUp && (
+            <div className="text-right">
+              <button
+                type="button"
+                className="text-sm text-primary font-medium hover:underline"
+                onClick={() => setIsForgotPassword(true)}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           <Button type="submit" className="w-full font-semibold" disabled={loading}>
             {loading ? 'Please wait...' : invited ? 'Set Password & Continue' : isSignUp ? 'Create Account' : 'Sign In'}
