@@ -43,12 +43,18 @@ serve(async (req) => {
 
     const runIdFromRequest =
       req.headers.get('x-lovable-run-id') ||
-      req.headers.get('x-run-id') ||
+      req.headers.get('sb-request-id') ||
       req.headers.get('x-request-id') ||
+      req.headers.get('x-run-id') ||
       null;
 
     console.log('Invite request run context', {
       runIdFromRequest,
+      lovableRunId: req.headers.get('x-lovable-run-id'),
+      sbRequestId: req.headers.get('sb-request-id'),
+      xRequestId: req.headers.get('x-request-id'),
+      traceId: req.headers.get('x-amzn-trace-id'),
+      baggage: req.headers.get('baggage'),
       headerKeys: Array.from(req.headers.keys()),
     });
 
