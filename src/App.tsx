@@ -57,7 +57,7 @@ const App = () => (
               <Route path="/help" element={<Help />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/profile" element={<Settings />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin" element={<AdminAuth />} />
               <Route path="/admin/members" element={<AdminMembers />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/events" element={<AdminEvents />} />
