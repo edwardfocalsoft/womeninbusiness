@@ -29,10 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session?.user) {
-        checkRoles(session.user.id);
+        await checkRoles(session.user.id);
       } else {
         setIsAdmin(false);
         setIsMember(false);
@@ -40,10 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        checkRoles(session.user.id);
+        await checkRoles(session.user.id);
       }
       setLoading(false);
     });
