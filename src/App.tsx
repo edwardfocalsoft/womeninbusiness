@@ -68,6 +68,7 @@ const App = () => (
               <Route path="/admin/resources" element={<AdminResources />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
+              <Route path="/admin/payments" element={<AdminPayments />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>

@@ -9,6 +9,7 @@ import {
 
 const adminItems = [
   { title: 'Members', url: '/admin/members', icon: Users },
+  { title: 'Payments', url: '/admin/payments', icon: CreditCard },
   { title: 'Analytics', url: '/admin/analytics', icon: BarChart3 },
   { title: 'Events', url: '/admin/events', icon: Calendar },
   { title: 'Announcements', url: '/admin/announcements', icon: Megaphone },
