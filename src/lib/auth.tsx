@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
-  const syncIdRef = useRef(0);
+  const initializedRef = useRef(false);
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchRoleFlags = useCallback(async (userId: string) => {
     const [rolesResult, membershipResult] = await Promise.all([
@@ -46,14 +47,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const syncAuthState = useCallback(
-    async (nextSession: Session | null) => {
-      const syncId = ++syncIdRef.current;
-      setLoading(true);
+  useEffect(() => {
+    let active = true;
+
+    const handleSession = async (nextSession: Session | null, isInitial: boolean) => {
+      if (!active) return;
+
+      const nextUserId = nextSession?.user?.id ?? null;
+      const userChanged = nextUserId !== currentUserIdRef.current;
+
+      // On token refresh for the same user, just update session without loading state
+      if (!isInitial && !userChanged) {
+        setSession(nextSession);
+        return;
+      }
+
+      currentUserIdRef.current = nextUserId;
       setSession(nextSession);
 
       if (!nextSession?.user) {
-        if (syncId !== syncIdRef.current) return;
         setIsAdmin(false);
         setIsMember(false);
         setLoading(false);
@@ -62,46 +74,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const flags = await fetchRoleFlags(nextSession.user.id);
-        if (syncId !== syncIdRef.current) return;
+        if (!active) return;
         setIsAdmin(flags.isAdmin);
         setIsMember(flags.isMember);
       } catch (error) {
         console.error('Failed to load role flags', error);
-        if (syncId !== syncIdRef.current) return;
+        if (!active) return;
         setIsAdmin(false);
         setIsMember(false);
       } finally {
-        if (syncId === syncIdRef.current) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
-    },
-    [fetchRoleFlags],
-  );
-
-  useEffect(() => {
-    let active = true;
-
-    const handleSession = (nextSession: Session | null) => {
-      if (!active) return;
-      void syncAuthState(nextSession);
     };
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      handleSession(nextSession);
+      handleSession(nextSession, false);
     });
 
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      handleSession(currentSession);
+      handleSession(currentSession, true);
+      initializedRef.current = true;
     });
 
     return () => {
       active = false;
       subscription.unsubscribe();
     };
-  }, [syncAuthState]);
+  }, [fetchRoleFlags]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
