@@ -92,6 +92,7 @@ async function sendTransactionalInvite(
   plan: string,
   purchaseDate: string,
   onboardingUrl: string,
+  runIdFromRequest: string | null,
 ) {
   const LOGO_URL = 'https://mywbsqmluljyyfvpfbqv.supabase.co/storage/v1/object/public/email-assets/wib-logo.png';
   const SITE_NAME = 'Women In Business';
