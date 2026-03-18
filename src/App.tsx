@@ -28,6 +28,7 @@ import AdminResources from "./pages/AdminResources";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSettings from "./pages/AdminSettings";
 import Onboarding from "./pages/Onboarding";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
