@@ -13,7 +13,7 @@ import wibLogo from '@/assets/wib-logo.png';
 type OnboardingStep = 'payment' | 'business-details' | 'complete';
 
 export default function Onboarding() {
-  const { user } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<OnboardingStep>('payment');
@@ -33,12 +33,18 @@ export default function Onboarding() {
   });
 
   useEffect(() => {
+    if (authLoading) return;
+    // Admins don't need onboarding — send them to admin panel
+    if (isAdmin) {
+      navigate('/admin/members', { replace: true });
+      return;
+    }
     if (!user) {
       navigate('/auth?tab=signup&invited=true');
       return;
     }
     checkMembershipStatus();
-  }, [user]);
+  }, [user, isAdmin, authLoading]);
 
   const checkMembershipStatus = async () => {
     if (!user) return;

@@ -11,11 +11,13 @@ import { format, differenceInDays } from 'date-fns';
 const RECEIPTS_PER_PAGE = 5;
 
 export default function Dashboard() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Redirect admins to admin portal
-  useEffect(() => { if (isAdmin) navigate('/admin/members', { replace: true }); }, [isAdmin, navigate]);
+  useEffect(() => { 
+    if (!authLoading && isAdmin) navigate('/admin/members', { replace: true }); 
+  }, [isAdmin, authLoading, navigate]);
   const [profile, setProfile] = useState<any>(null);
   const [membership, setMembership] = useState<any>(null);
   const [announcements, setAnnouncements] = useState<any[]>([]);
