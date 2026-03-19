@@ -10,8 +10,10 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Download, UserPlus, Bell, Mail, MailX } from 'lucide-react';
+import { Search, Download, UserPlus, Bell, Mail, MailX, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
+
+const PER_PAGE = 10;
 
 export default function AdminMembers() {
   const { isAdmin, loading: authLoading } = useAuth();
