@@ -130,11 +130,13 @@ export default function AdminMembers() {
   const handleResendInvite = async (pm: any) => {
     try {
       const res = await supabase.functions.invoke('send-member-invite', {
-        body: { 
-          email: pm.email, 
-          full_name: pm.full_name, 
+        body: {
+          email: pm.email,
+          full_name: pm.full_name,
           plan: pm.plan,
           purchase_date: format(new Date(pm.purchase_date), 'dd MMM yyyy'),
+          member_type: pm.member_type || 'new',
+          expires_at: pm.expires_at || null,
           send_email: true,
         },
       });

@@ -8,70 +8,91 @@ const corsHeaders = {
 };
 
 const DEFAULT_SITE_URL = "https://womeninbusiness.livents.co.za";
+const SITE_NAME = "Women In Business";
+const SENDER_DOMAIN = "notify.womeninbusiness.livents.co.za";
+const FROM_DOMAIN = "womeninbusiness.livents.co.za";
+
+type MemberType = "new" | "active" | "expired";
 
 const getSiteUrl = () => {
   const configured = (Deno.env.get("PUBLIC_SITE_URL") || DEFAULT_SITE_URL).trim();
   return configured.endsWith("/") ? configured.slice(0, -1) : configured;
 };
 
-function getEmailContent(memberType: string, fullName: string, onboardingUrl: string) {
-  const firstName = fullName.split(" ")[0] || fullName;
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+
+const normalizeMemberType = (value: string | undefined): MemberType => {
+  if (value === "active" || value === "expired") return value;
+  return "new";
+};
+
+function getInviteCopy(memberType: MemberType, fullName: string, inviteUrl: string) {
+  const firstName = fullName.trim().split(" ")[0] || fullName;
 
   if (memberType === "expired") {
     return {
       subject: "Renew Your Women In Business Membership",
-      body: `Dear ${firstName},
-
-We noticed that your Women In Business membership has expired. We miss having you as part of our vibrant community!
-
-Renew your membership today to continue enjoying the benefits of being a Women In Business member — including access to exclusive events, networking opportunities, resources, and more.
-
-Click the link below to renew your membership:
-${onboardingUrl}
-
-We look forward to welcoming you back!
-
-Warm regards,
-Women In Business Team`,
+      preheader: "Set your password, then renew to continue enjoying member benefits.",
+      heading: `Welcome back, ${firstName}`,
+      body: "Your previous membership has expired. Please set your password first, then renew your membership to continue enjoying Women In Business benefits.",
+      ctaLabel: "Set Password & Renew",
+      ctaUrl: inviteUrl,
+      text: `Hi ${firstName}, your membership has expired. Set your password first, then renew your membership here: ${inviteUrl}`,
     };
   }
 
   if (memberType === "active") {
     return {
       subject: "Complete Your Women In Business Profile",
-      body: `Dear ${firstName},
-
-Welcome to Women In Business! Your membership is already active.
-
-To get the most out of your membership, please complete your online profile. This helps other members discover your business and creates networking opportunities.
-
-Click the link below to complete your profile:
-${onboardingUrl}
-
-We're excited to have you as part of the community!
-
-Warm regards,
-Women In Business Team`,
+      preheader: "Set your password and complete your profile.",
+      heading: `Hi ${firstName}`,
+      body: "Your membership is already active. Please set your password and complete your online profile to unlock the full member experience.",
+      ctaLabel: "Set Password & Continue",
+      ctaUrl: inviteUrl,
+      text: `Hi ${firstName}, your membership is active. Set your password and complete your profile here: ${inviteUrl}`,
     };
   }
 
-  // Default: new member
   return {
-    subject: "You're Invited to Join Women In Business!",
-    body: `Dear ${firstName},
-
-You've been invited to join Women In Business — a community of ambitious women entrepreneurs and professionals.
-
-To get started, please sign up and complete your membership payment to enjoy the full benefits of being a Women In Business member, including exclusive events, networking, resources, and more.
-
-Click the link below to get started:
-${onboardingUrl}
-
-We look forward to having you!
-
-Warm regards,
-Women In Business Team`,
+    subject: "You're Invited to Join Women In Business",
+    preheader: "Set your password and complete membership payment to get started.",
+    heading: `Welcome ${firstName}`,
+    body: "You were added by the Women In Business admin team. Please set your password first, then complete your membership payment to enjoy all member benefits.",
+    ctaLabel: "Set Password & Get Started",
+    ctaUrl: inviteUrl,
+    text: `Hi ${firstName}, you were invited to join Women In Business. Set your password and then complete membership payment here: ${inviteUrl}`,
   };
+}
+
+function renderEmailHtml(copy: ReturnType<typeof getInviteCopy>) {
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeHtml(copy.subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#FFF9F0;font-family:Roboto,Arial,sans-serif;">
+    <div style="max-width:520px;margin:0 auto;padding:36px 28px;">
+      <p style="font-size:12px;color:#999999;letter-spacing:0.08em;text-transform:uppercase;font-weight:700;">${SITE_NAME}</p>
+      <h1 style="margin:0 0 14px;font-size:24px;line-height:1.3;color:#1F1F1F;">${escapeHtml(copy.heading)}</h1>
+      <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#666666;">${escapeHtml(copy.body)}</p>
+      <a href="${copy.ctaUrl}" style="display:inline-block;background:#DD1C1A;color:#ffffff;text-decoration:none;font-weight:700;border-radius:5px;padding:14px 24px;">
+        ${escapeHtml(copy.ctaLabel)}
+      </a>
+      <p style="margin:26px 0 8px;font-size:12px;color:#999999;">If the button does not work, copy this link into your browser:</p>
+      <p style="margin:0;font-size:12px;word-break:break-word;"><a href="${copy.ctaUrl}" style="color:#DD1C1A;">${copy.ctaUrl}</a></p>
+      <hr style="border:none;border-top:1px solid #E8DCC8;margin:28px 0;" />
+      <p style="margin:0;font-size:11px;color:#BBBBBB;">Women In Business · Non Profit Organisation (2020/911027/08)</p>
+    </div>
+  </body>
+</html>`;
 }
 
 serve(async (req) => {
@@ -84,7 +105,6 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify caller is authenticated admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Not authenticated");
 
@@ -104,13 +124,18 @@ serve(async (req) => {
     if (!roles?.some((r) => r.role === "admin")) throw new Error("Not authorized");
 
     const { email, full_name, send_email, member_type } = await req.json();
-    if (!email || !full_name) throw new Error("Email and full name are required");
 
+    const recipientEmail = String(email || "").trim().toLowerCase();
+    const recipientName = String(full_name || "").trim();
+
+    if (!recipientEmail || !recipientName) {
+      throw new Error("Email and full name are required");
+    }
+
+    const memberType = normalizeMemberType(member_type);
     const siteUrl = getSiteUrl();
-    const memberTypeParam = member_type || "new";
-    const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}&member_type=${encodeURIComponent(memberTypeParam)}`;
+    const inviteUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(recipientEmail)}&full_name=${encodeURIComponent(recipientName)}&member_type=${memberType}`;
 
-    // Check admin settings for email invite toggle
     const { data: settings } = await supabase
       .from("admin_settings")
       .select("send_invite_emails")
@@ -118,36 +143,66 @@ serve(async (req) => {
       .single();
 
     const shouldSendEmail = send_email !== false && settings?.send_invite_emails !== false;
+    let emailSent = false;
+    let suppressed = false;
 
     if (shouldSendEmail) {
-      // For active members, use OTP to create account if needed
-      // For new/expired, also use OTP
-      const emailContent = getEmailContent(memberTypeParam, full_name, onboardingUrl);
+      const { data: suppressedRows } = await supabase
+        .from("suppressed_emails")
+        .select("id")
+        .eq("email", recipientEmail)
+        .limit(1);
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: onboardingUrl,
-          data: {
-            full_name,
-            invited: true,
-            member_type: memberTypeParam,
+      suppressed = Boolean(suppressedRows && suppressedRows.length > 0);
+
+      if (!suppressed) {
+        const copy = getInviteCopy(memberType, recipientName, inviteUrl);
+        const messageId = `member-invite-${crypto.randomUUID()}`;
+
+        await supabase.from("email_send_log").insert({
+          message_id: messageId,
+          template_name: "member-invite",
+          recipient_email: recipientEmail,
+          status: "pending",
+          metadata: { member_type: memberType },
+        });
+
+        const { error: enqueueError } = await supabase.rpc("enqueue_email", {
+          queue_name: "transactional_emails",
+          payload: {
+            message_id: messageId,
+            run_id: messageId,
+            to: recipientEmail,
+            from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+            sender_domain: SENDER_DOMAIN,
+            subject: copy.subject,
+            html: renderEmailHtml(copy),
+            text: copy.text,
+            purpose: "transactional",
+            label: "member-invite",
+            queued_at: new Date().toISOString(),
           },
-        },
-      });
+        });
 
-      if (error) {
-        throw new Error(`Failed to send invite email: ${error.message}`);
+        if (enqueueError) {
+          throw new Error(`Failed to enqueue invite email: ${enqueueError.message}`);
+        }
+
+        emailSent = true;
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: shouldSendEmail ? `Invite sent to ${email}` : "Member added (email invite disabled)",
-        emailSent: shouldSendEmail,
-        onboardingUrl,
+        emailSent,
+        suppressed,
+        message: !shouldSendEmail
+          ? "Member added (email invite disabled)"
+          : suppressed
+            ? "Member added (email is suppressed)"
+            : `Invite sent to ${recipientEmail}`,
+        inviteUrl,
       }),
       {
         status: 200,
