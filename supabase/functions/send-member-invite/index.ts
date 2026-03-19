@@ -127,15 +127,18 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Not authenticated");
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("Not authenticated");
 
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
-    const {
-      data: { user },
-      error: authError,
-    } = await anonClient.auth.getUser(authHeader.replace("Bearer ", ""));
+    const token = authHeader.replace("Bearer ", "");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const anonClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
-    if (authError || !user) throw new Error("Not authenticated");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) throw new Error("Not authenticated");
+
+    const user = { id: claimsData.claims.sub as string };
 
     const { data: roles } = await supabase
       .from("user_roles")
