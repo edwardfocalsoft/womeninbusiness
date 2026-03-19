@@ -119,7 +119,7 @@ export default function AdminMembers() {
       }
 
       setAddOpen(false);
-      setAddForm({ full_name: '', email: '', plan: 'monthly', purchase_date: new Date().toISOString().split('T')[0] });
+      setAddForm({ full_name: '', email: '', plan: 'monthly', purchase_date: new Date().toISOString().split('T')[0], expires_at: '', member_type: 'new' });
       fetchPending();
     } catch (err: any) {
       toast.error(err.message);
