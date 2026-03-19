@@ -134,11 +134,35 @@ export default function Onboarding() {
       });
     }
 
+    // Determine member_type from pending record or URL param
+    const memberType = (pendingRes.data as any)?.member_type || searchParams.get('member_type') || 'new';
+
     const m = membershipRes.data;
     if (m && m.status === 'active' && new Date(m.expires_at) >= new Date()) {
       if (profileRes.data?.onboarding_completed) {
         navigate('/dashboard');
         return;
+      }
+      // Active members skip payment, go straight to business details
+      setStep('business-details');
+    } else if (memberType === 'active') {
+      // Admin marked as active — skip payment, go to business details
+      // Auto-create membership from pending data if needed
+      if (!m && pendingRes.data) {
+        const pd = pendingRes.data as any;
+        const expiresAt = pd.expires_at || (pd.plan === 'annual'
+          ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+          : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
+        
+        await supabase.from('memberships').insert({
+          user_id: user.id,
+          plan: pd.plan,
+          status: 'active',
+          starts_at: pd.purchase_date || new Date().toISOString(),
+          expires_at: expiresAt,
+        });
+        await supabase.from('user_roles').upsert({ user_id: user.id, role: 'member' as const }, { onConflict: 'user_id,role' });
+        await supabase.from('pending_members').update({ status: 'claimed' }).eq('id', pd.id);
       }
       setStep('business-details');
     } else if (m && (m.status === 'expired' || new Date(m.expires_at) < new Date())) {

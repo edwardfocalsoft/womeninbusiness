@@ -345,8 +345,10 @@ export type Database = {
           added_by: string | null
           created_at: string
           email: string
+          expires_at: string | null
           full_name: string
           id: string
+          member_type: string
           plan: Database["public"]["Enums"]["membership_plan"]
           purchase_date: string
           status: string
@@ -355,8 +357,10 @@ export type Database = {
           added_by?: string | null
           created_at?: string
           email: string
+          expires_at?: string | null
           full_name: string
           id?: string
+          member_type?: string
           plan: Database["public"]["Enums"]["membership_plan"]
           purchase_date: string
           status?: string
@@ -365,8 +369,10 @@ export type Database = {
           added_by?: string | null
           created_at?: string
           email?: string
+          expires_at?: string | null
           full_name?: string
           id?: string
+          member_type?: string
           plan?: Database["public"]["Enums"]["membership_plan"]
           purchase_date?: string
           status?: string

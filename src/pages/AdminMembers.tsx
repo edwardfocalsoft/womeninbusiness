@@ -21,7 +21,7 @@ export default function AdminMembers() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ full_name: '', email: '', plan: 'monthly' as 'monthly' | 'annual', purchase_date: new Date().toISOString().split('T')[0] });
+  const [addForm, setAddForm] = useState({ full_name: '', email: '', plan: 'monthly' as 'monthly' | 'annual', purchase_date: new Date().toISOString().split('T')[0], expires_at: '', member_type: 'new' as 'new' | 'active' | 'expired' });
   const [addLoading, setAddLoading] = useState(false);
   const [sendInviteEmails, setSendInviteEmails] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
@@ -83,13 +83,16 @@ export default function AdminMembers() {
     try {
       const purchaseDate = new Date(addForm.purchase_date);
       
+      const expiresAt = addForm.expires_at ? new Date(addForm.expires_at).toISOString() : null;
       const { error } = await supabase.from('pending_members').insert({
         full_name: addForm.full_name,
         email: addForm.email,
         plan: addForm.plan,
         purchase_date: purchaseDate.toISOString(),
+        member_type: addForm.member_type,
+        expires_at: expiresAt,
         added_by: (await supabase.auth.getUser()).data.user?.id,
-      });
+      } as any);
 
       if (error) throw error;
 
@@ -100,6 +103,8 @@ export default function AdminMembers() {
           full_name: addForm.full_name, 
           plan: addForm.plan,
           purchase_date: format(purchaseDate, 'dd MMM yyyy'),
+          member_type: addForm.member_type,
+          expires_at: expiresAt,
           send_email: sendInviteEmails,
         },
       });
@@ -114,7 +119,7 @@ export default function AdminMembers() {
       }
 
       setAddOpen(false);
-      setAddForm({ full_name: '', email: '', plan: 'monthly', purchase_date: new Date().toISOString().split('T')[0] });
+      setAddForm({ full_name: '', email: '', plan: 'monthly', purchase_date: new Date().toISOString().split('T')[0], expires_at: '', member_type: 'new' });
       fetchPending();
     } catch (err: any) {
       toast.error(err.message);
@@ -159,11 +164,11 @@ export default function AdminMembers() {
     const now = new Date();
     const expiringMembers = members.filter(m => {
       const daysLeft = differenceInDays(new Date(m.expires_at), now);
-      return m.status === 'active' && daysLeft >= 0 && daysLeft <= 30;
+      return m.status === 'active' && daysLeft >= 0 && daysLeft <= 15;
     });
 
     if (expiringMembers.length === 0) {
-      toast.info('No members have memberships expiring within 30 days.');
+      toast.info('No members have memberships expiring within 15 days.');
       return;
     }
 
@@ -235,9 +240,20 @@ export default function AdminMembers() {
               </DialogTrigger>
               <DialogContent className="rounded-[5px]">
                 <DialogHeader>
-                  <DialogTitle>Add New Member</DialogTitle>
+                  <DialogTitle>Add Member</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Member Type</Label>
+                    <Select value={addForm.member_type} onValueChange={v => setAddForm(p => ({ ...p, member_type: v as 'new' | 'active' | 'expired' }))}>
+                      <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New Member</SelectItem>
+                        <SelectItem value="active">Existing — Active Membership</SelectItem>
+                        <SelectItem value="expired">Existing — Expired Membership</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label>Full Name</Label>
                     <Input value={addForm.full_name} onChange={e => setAddForm(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. Jane Doe" />
@@ -257,8 +273,12 @@ export default function AdminMembers() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Membership Date</Label>
+                    <Label>Membership Inception Date</Label>
                     <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Membership Expiry Date</Label>
+                    <Input type="date" value={addForm.expires_at} onChange={e => setAddForm(p => ({ ...p, expires_at: e.target.value }))} />
                   </div>
                   {!sendInviteEmails && (
                     <div className="flex items-start gap-2 p-3 rounded-[5px] bg-amber-50 border border-amber-200">
