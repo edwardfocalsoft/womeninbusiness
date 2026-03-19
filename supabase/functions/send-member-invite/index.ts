@@ -10,7 +10,7 @@ const corsHeaders = {
 const DEFAULT_SITE_URL = "https://womeninbusiness.livents.co.za";
 const SITE_NAME = "Women In Business";
 const SENDER_DOMAIN = "notify.womeninbusiness.livents.co.za";
-const FROM_DOMAIN = "womeninbusiness.livents.co.za";
+const FROM_DOMAIN = "notify.womeninbusiness.livents.co.za";
 
 type MemberType = "new" | "active" | "expired";
 

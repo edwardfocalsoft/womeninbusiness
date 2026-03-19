@@ -9,7 +9,7 @@ const corsHeaders = {
 const LOGO_URL = 'https://mywbsqmluljyyfvpfbqv.supabase.co/storage/v1/object/public/email-assets/wib-logo.png';
 const SITE_NAME = 'Women In Business';
 const SENDER_DOMAIN = 'notify.womeninbusiness.livents.co.za';
-const FROM_DOMAIN = 'womeninbusiness.livents.co.za';
+const FROM_DOMAIN = 'notify.womeninbusiness.livents.co.za';
 
 function generateEmailHtml(template: string, data: Record<string, any>): { html: string; subject: string } {
   const baseStyle = `
