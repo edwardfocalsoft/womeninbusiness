@@ -343,11 +343,11 @@ export default function AdminMembers() {
         </div>
 
         <div className="space-y-3">
-          {filtered.map(m => {
+          {paginatedMembers.map(m => {
             const expired = new Date(m.expires_at) < new Date();
             const status = m.status === 'cancelled' ? 'cancelled' : expired ? 'expired' : m.status;
             return (
-              <div key={m.id} className="rounded-[5px] border border-border bg-card p-4 sm:p-5 shadow-sm">
+              <div key={m.id} className="rounded-[5px] border border-border bg-card p-4 sm:p-5 shadow-sm cursor-pointer hover:border-primary/40 transition-colors" onClick={() => setDetailMember(m)}>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
@@ -362,8 +362,11 @@ export default function AdminMembers() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {status === 'active' && <Button variant="outline" size="sm" className="text-xs" onClick={() => handleLapse(m.user_id)}>Lapse</Button>}
-                    {(status === 'expired' || status === 'cancelled') && <Button size="sm" className="text-xs" onClick={() => handleActivate(m.user_id, m.plan)}>Activate</Button>}
+                    <Button variant="ghost" size="sm" className="text-xs gap-1" onClick={(e) => { e.stopPropagation(); setDetailMember(m); }}>
+                      <Eye className="w-3.5 h-3.5" /> View
+                    </Button>
+                    {status === 'active' && <Button variant="outline" size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); handleLapse(m.user_id); }}>Lapse</Button>}
+                    {(status === 'expired' || status === 'cancelled') && <Button size="sm" className="text-xs" onClick={(e) => { e.stopPropagation(); handleActivate(m.user_id, m.plan); }}>Activate</Button>}
                   </div>
                 </div>
               </div>
@@ -372,12 +375,24 @@ export default function AdminMembers() {
           {filtered.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">No members found.</p>}
         </div>
 
+        {/* Members Pagination */}
+        {memberTotalPages > 1 && (
+          <div className="flex items-center justify-between mt-4">
+            <p className="text-xs text-muted-foreground">Showing {(memberPage - 1) * PER_PAGE + 1}–{Math.min(memberPage * PER_PAGE, filtered.length)} of {filtered.length}</p>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" disabled={memberPage <= 1} onClick={() => setMemberPage(p => p - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+              <span className="text-xs text-muted-foreground">{memberPage} / {memberTotalPages}</span>
+              <Button variant="outline" size="sm" disabled={memberPage >= memberTotalPages} onClick={() => setMemberPage(p => p + 1)}><ChevronRight className="w-4 h-4" /></Button>
+            </div>
+          </div>
+        )}
+
         {/* Pending Members */}
         {pendingMembers.length > 0 && (
           <>
-            <h2 className="text-lg font-bold mt-8 mb-4">Pending Invitations</h2>
+            <h2 className="text-lg font-bold mt-8 mb-4">Pending Invitations ({pendingMembers.length})</h2>
             <div className="space-y-3">
-              {pendingMembers.map(pm => (
+              {paginatedPending.map(pm => (
                 <div key={pm.id} className="rounded-[5px] border border-dashed border-border bg-card p-4 shadow-sm">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
@@ -398,8 +413,61 @@ export default function AdminMembers() {
                 </div>
               ))}
             </div>
+            {pendingTotalPages > 1 && (
+              <div className="flex items-center justify-between mt-4">
+                <p className="text-xs text-muted-foreground">Showing {(pendingPage - 1) * PER_PAGE + 1}–{Math.min(pendingPage * PER_PAGE, pendingMembers.length)} of {pendingMembers.length}</p>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={pendingPage <= 1} onClick={() => setPendingPage(p => p - 1)}><ChevronLeft className="w-4 h-4" /></Button>
+                  <span className="text-xs text-muted-foreground">{pendingPage} / {pendingTotalPages}</span>
+                  <Button variant="outline" size="sm" disabled={pendingPage >= pendingTotalPages} onClick={() => setPendingPage(p => p + 1)}><ChevronRight className="w-4 h-4" /></Button>
+                </div>
+              </div>
+            )}
           </>
         )}
+
+        {/* Member Detail Modal */}
+        <Dialog open={!!detailMember} onOpenChange={(open) => !open && setDetailMember(null)}>
+          <DialogContent className="rounded-[5px] max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Member Details</DialogTitle>
+            </DialogHeader>
+            {detailMember && (() => {
+              const p = (detailMember as any).profiles;
+              const expired = new Date(detailMember.expires_at) < new Date();
+              const status = detailMember.status === 'cancelled' ? 'cancelled' : expired ? 'expired' : detailMember.status;
+              return (
+                <div className="space-y-4 pt-2">
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-bold">{p?.full_name || 'Unknown'}</h3>
+                    <Badge className={`text-xs ${status === 'active' ? 'bg-green-100 text-green-700 border-green-200' : status === 'expired' ? 'bg-amber-100 text-amber-700 border-amber-200' : 'bg-red-100 text-red-700 border-red-200'}`}>{status}</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div><p className="text-xs text-muted-foreground">Member ID</p><p className="font-mono font-bold text-primary">{detailMember.member_id || '—'}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Plan</p><p className="capitalize font-semibold">{detailMember.plan}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Start Date</p><p className="font-semibold">{format(new Date(detailMember.starts_at), 'dd MMM yyyy')}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Expiry Date</p><p className="font-semibold">{format(new Date(detailMember.expires_at), 'dd MMM yyyy')}</p></div>
+                  </div>
+                  {p && (
+                    <>
+                      <hr className="border-border" />
+                      <h4 className="text-sm font-bold">Business Details</h4>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div><p className="text-xs text-muted-foreground">Business Name</p><p>{p.business_name || '—'}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Industry</p><p>{p.industry || '—'}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Location</p><p>{p.location || '—'}</p></div>
+                        <div><p className="text-xs text-muted-foreground">Phone</p><p>{p.phone || '—'}</p></div>
+                        <div className="col-span-2"><p className="text-xs text-muted-foreground">Website</p><p>{p.website || '—'}</p></div>
+                        <div className="col-span-2"><p className="text-xs text-muted-foreground">Products / Services</p><p>{p.products_services || '—'}</p></div>
+                        <div className="col-span-2"><p className="text-xs text-muted-foreground">Bio</p><p className="text-muted-foreground">{p.bio || '—'}</p></div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
