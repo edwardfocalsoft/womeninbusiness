@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface AuthContextType {
@@ -24,10 +24,10 @@ export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
-  const initializedRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
 
   const fetchRoleFlags = useCallback(async (userId: string) => {
@@ -50,14 +50,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true;
 
-    const handleSession = async (nextSession: Session | null, isInitial: boolean) => {
+    const handleSession = async (
+      nextSession: Session | null,
+      isInitial: boolean,
+      authEvent: AuthChangeEvent | 'INITIAL_SESSION',
+    ) => {
       if (!active) return;
 
-      const nextUserId = nextSession?.user?.id ?? null;
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
       const userChanged = nextUserId !== currentUserIdRef.current;
+      const shouldUpdateUserObject = userChanged || authEvent === 'USER_UPDATED' || (isInitial && Boolean(nextUser));
 
-      // On token refresh for the same user, just update session without loading state
-      if (!isInitial && !userChanged) {
+      // Keep user object stable on background auth updates (tab focus / token refresh)
+      // so form initialization effects depending on [user] don't run again and wipe drafts.
+      if (!isInitial && !userChanged && authEvent !== 'USER_UPDATED') {
         setSession(nextSession);
         return;
       }
@@ -65,7 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUserIdRef.current = nextUserId;
       setSession(nextSession);
 
-      if (!nextSession?.user) {
+      if (shouldUpdateUserObject) {
+        setUser(nextUser);
+      }
+
+      if (!nextUser) {
+        setUser(null);
         setIsAdmin(false);
         setIsMember(false);
         setLoading(false);
@@ -73,7 +85,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const flags = await fetchRoleFlags(nextSession.user.id);
+        const flags = await fetchRoleFlags(nextUser.id);
         if (!active) return;
         setIsAdmin(flags.isAdmin);
         setIsMember(flags.isMember);
@@ -89,13 +101,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      handleSession(nextSession, false);
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      handleSession(nextSession, false, event);
     });
 
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      handleSession(currentSession, true);
-      initializedRef.current = true;
+      handleSession(currentSession, true, 'INITIAL_SESSION');
     });
 
     return () => {
@@ -112,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         session,
-        user: session?.user ?? null,
+        user,
         loading,
         isAdmin,
         isMember,
