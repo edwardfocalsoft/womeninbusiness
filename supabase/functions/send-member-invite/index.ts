@@ -201,7 +201,7 @@ serve(async (req) => {
           ? "Member added (email invite disabled)"
           : suppressed
             ? "Member added (email is suppressed)"
-            : `Invite sent to ${email}`,
+            : `Invite sent to ${recipientEmail}`,
         inviteUrl,
       }),
       {
