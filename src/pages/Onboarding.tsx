@@ -554,7 +554,6 @@ export default function Onboarding() {
                 suggestions={SERVICE_SUGGESTIONS}
               />
             </div>
-            </div>
             <div>
               <Label>Bio</Label>
               <Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." />
