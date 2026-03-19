@@ -43,6 +43,22 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+function extractRequestRunId(req: Request): string {
+  const candidates = [
+    req.headers.get('x-lovable-run-id'),
+    req.headers.get('x-run-id'),
+    req.headers.get('x-lovable-runid'),
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim().length > 0) {
+      return candidate.trim()
+    }
+  }
+
+  return ''
+}
+
 Deno.serve(async (req) => {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -76,6 +92,7 @@ Deno.serve(async (req) => {
     )
   }
 
+  const dispatcherRunId = extractRequestRunId(req)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   // 1. Check rate-limit cooldown and read queue config
@@ -242,9 +259,19 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const payloadRunId =
+          typeof payload?.run_id === 'string' && payload.run_id.trim().length > 0
+            ? payload.run_id.trim()
+            : ''
+
+        const effectiveRunId =
+          queue === 'transactional_emails'
+            ? (dispatcherRunId || payloadRunId || crypto.randomUUID())
+            : (payloadRunId || dispatcherRunId || crypto.randomUUID())
+
         await sendLovableEmail(
           {
-            run_id: payload.run_id,
+            run_id: effectiveRunId,
             to: payload.to,
             from: payload.from,
             sender_domain: payload.sender_domain,

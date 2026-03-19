@@ -11,6 +11,26 @@ const SITE_NAME = 'Women In Business';
 const SENDER_DOMAIN = 'notify.womeninbusiness.livents.co.za';
 const FROM_DOMAIN = 'womeninbusiness.livents.co.za';
 
+const getRequestRunId = (req: Request, explicitRunId: unknown): string | null => {
+  if (typeof explicitRunId === 'string' && explicitRunId.trim().length > 0) {
+    return explicitRunId.trim();
+  }
+
+  const candidates = [
+    req.headers.get('x-lovable-run-id'),
+    req.headers.get('x-run-id'),
+    req.headers.get('x-lovable-runid'),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+};
+
 function generateEmailHtml(template: string, data: Record<string, any>): { html: string; subject: string } {
   const baseStyle = `
     body { margin: 0; padding: 0; background-color: #FFF9F0; font-family: 'Roboto', Arial, sans-serif; }
@@ -127,9 +147,10 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await anonClient.auth.getUser(authHeader.replace('Bearer ', ''));
     if (authError || !user) throw new Error('Not authenticated');
 
-    const { template, data, to } = await req.json();
+    const { template, data, to, run_id } = await req.json();
     if (!template || !to) throw new Error('Template and recipient email are required');
 
+    const requestRunId = getRequestRunId(req, run_id);
     const { html, subject } = generateEmailHtml(template, data || {});
     const messageId = `${template}-${crypto.randomUUID()}`;
 
@@ -165,7 +186,7 @@ serve(async (req) => {
       queue_name: 'transactional_emails',
       payload: {
         message_id: messageId,
-        run_id: crypto.randomUUID(),
+        ...(requestRunId ? { run_id: requestRunId } : {}),
         to,
         from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
         sender_domain: SENDER_DOMAIN,
