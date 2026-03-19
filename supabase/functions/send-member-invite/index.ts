@@ -14,6 +14,66 @@ const getSiteUrl = () => {
   return configured.endsWith("/") ? configured.slice(0, -1) : configured;
 };
 
+function getEmailContent(memberType: string, fullName: string, onboardingUrl: string) {
+  const firstName = fullName.split(" ")[0] || fullName;
+
+  if (memberType === "expired") {
+    return {
+      subject: "Renew Your Women In Business Membership",
+      body: `Dear ${firstName},
+
+We noticed that your Women In Business membership has expired. We miss having you as part of our vibrant community!
+
+Renew your membership today to continue enjoying the benefits of being a Women In Business member — including access to exclusive events, networking opportunities, resources, and more.
+
+Click the link below to renew your membership:
+${onboardingUrl}
+
+We look forward to welcoming you back!
+
+Warm regards,
+Women In Business Team`,
+    };
+  }
+
+  if (memberType === "active") {
+    return {
+      subject: "Complete Your Women In Business Profile",
+      body: `Dear ${firstName},
+
+Welcome to Women In Business! Your membership is already active.
+
+To get the most out of your membership, please complete your online profile. This helps other members discover your business and creates networking opportunities.
+
+Click the link below to complete your profile:
+${onboardingUrl}
+
+We're excited to have you as part of the community!
+
+Warm regards,
+Women In Business Team`,
+    };
+  }
+
+  // Default: new member
+  return {
+    subject: "You're Invited to Join Women In Business!",
+    body: `Dear ${firstName},
+
+You've been invited to join Women In Business — a community of ambitious women entrepreneurs and professionals.
+
+To get started, please sign up and complete your membership payment to enjoy the full benefits of being a Women In Business member, including exclusive events, networking, resources, and more.
+
+Click the link below to get started:
+${onboardingUrl}
+
+We look forward to having you!
+
+Warm regards,
+Women In Business Team`,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,11 +103,12 @@ serve(async (req) => {
 
     if (!roles?.some((r) => r.role === "admin")) throw new Error("Not authorized");
 
-    const { email, full_name, send_email } = await req.json();
+    const { email, full_name, send_email, member_type } = await req.json();
     if (!email || !full_name) throw new Error("Email and full name are required");
 
     const siteUrl = getSiteUrl();
-    const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}`;
+    const memberTypeParam = member_type || "new";
+    const onboardingUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}&member_type=${encodeURIComponent(memberTypeParam)}`;
 
     // Check admin settings for email invite toggle
     const { data: settings } = await supabase
@@ -59,7 +120,26 @@ serve(async (req) => {
     const shouldSendEmail = send_email !== false && settings?.send_invite_emails !== false;
 
     if (shouldSendEmail) {
-      await sendAuthInviteEmail(supabase, email, full_name, onboardingUrl);
+      // For active members, use OTP to create account if needed
+      // For new/expired, also use OTP
+      const emailContent = getEmailContent(memberTypeParam, full_name, onboardingUrl);
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: onboardingUrl,
+          data: {
+            full_name,
+            invited: true,
+            member_type: memberTypeParam,
+          },
+        },
+      });
+
+      if (error) {
+        throw new Error(`Failed to send invite email: ${error.message}`);
+      }
     }
 
     return new Response(
@@ -83,26 +163,3 @@ serve(async (req) => {
     });
   }
 });
-
-async function sendAuthInviteEmail(
-  supabase: ReturnType<typeof createClient>,
-  email: string,
-  fullName: string,
-  onboardingUrl: string,
-) {
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: {
-      shouldCreateUser: true,
-      emailRedirectTo: onboardingUrl,
-      data: {
-        full_name: fullName,
-        invited: true,
-      },
-    },
-  });
-
-  if (error) {
-    throw new Error(`Failed to send invite email: ${error.message}`);
-  }
-}
