@@ -240,9 +240,20 @@ export default function AdminMembers() {
               </DialogTrigger>
               <DialogContent className="rounded-[5px]">
                 <DialogHeader>
-                  <DialogTitle>Add New Member</DialogTitle>
+                  <DialogTitle>Add Member</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
+                  <div>
+                    <Label>Member Type</Label>
+                    <Select value={addForm.member_type} onValueChange={v => setAddForm(p => ({ ...p, member_type: v as 'new' | 'active' | 'expired' }))}>
+                      <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">New Member</SelectItem>
+                        <SelectItem value="active">Existing — Active Membership</SelectItem>
+                        <SelectItem value="expired">Existing — Expired Membership</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label>Full Name</Label>
                     <Input value={addForm.full_name} onChange={e => setAddForm(p => ({ ...p, full_name: e.target.value }))} placeholder="e.g. Jane Doe" />
