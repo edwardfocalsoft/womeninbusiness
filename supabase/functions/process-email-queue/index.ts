@@ -242,6 +242,11 @@ Deno.serve(async (req) => {
       }
 
       try {
+        const runId =
+          typeof payload?.run_id === 'string' && payload.run_id.trim().length > 0
+            ? payload.run_id
+            : crypto.randomUUID()
+
         const emailPayload: Record<string, unknown> = {
           to: payload.to,
           from: payload.from,
@@ -252,14 +257,7 @@ Deno.serve(async (req) => {
           purpose: payload.purpose,
           label: payload.label,
           message_id: payload.message_id,
-        }
-
-        if (
-          payload?.purpose === 'auth' &&
-          typeof payload?.run_id === 'string' &&
-          payload.run_id.trim().length > 0
-        ) {
-          emailPayload.run_id = payload.run_id
+          run_id: runId,
         }
 
         // Only include optional fields when present
