@@ -263,7 +263,11 @@ Deno.serve(async (req) => {
         typeof payload?.run_id === 'string' && payload.run_id.trim().length > 0
           ? payload.run_id.trim()
           : null
-      const runId = dispatchRunId ?? payloadRunId
+
+      const hasCanonicalPayloadRunId = Boolean(payloadRunId?.startsWith('run_'))
+      const runId = hasCanonicalPayloadRunId
+        ? payloadRunId
+        : (dispatchRunId ?? payloadRunId)
 
       if (!runId) {
         const errorMsg = 'Missing run_id in dispatcher context and payload'
