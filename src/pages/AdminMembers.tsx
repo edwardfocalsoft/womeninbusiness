@@ -273,8 +273,12 @@ export default function AdminMembers() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Membership Date</Label>
+                    <Label>Membership Inception Date</Label>
                     <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
+                  </div>
+                  <div>
+                    <Label>Membership Expiry Date</Label>
+                    <Input type="date" value={addForm.expires_at} onChange={e => setAddForm(p => ({ ...p, expires_at: e.target.value }))} />
                   </div>
                   {!sendInviteEmails && (
                     <div className="flex items-start gap-2 p-3 rounded-[5px] bg-amber-50 border border-amber-200">
