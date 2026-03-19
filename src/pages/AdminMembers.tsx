@@ -277,24 +277,33 @@ export default function AdminMembers() {
                     <Label>Email Address</Label>
                     <Input type="email" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} placeholder="e.g. jane@example.com" />
                   </div>
-                  <div>
-                    <Label>Plan</Label>
-                    <Select value={addForm.plan} onValueChange={v => setAddForm(p => ({ ...p, plan: v as 'monthly' | 'annual' }))}>
-                      <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="monthly">Monthly — R50/mo</SelectItem>
-                        <SelectItem value="annual">Annual — R500/yr</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Membership Inception Date</Label>
-                    <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
-                  </div>
-                  <div>
-                    <Label>Membership Expiry Date</Label>
-                    <Input type="date" value={addForm.expires_at} onChange={e => setAddForm(p => ({ ...p, expires_at: e.target.value }))} />
-                  </div>
+                  {addForm.member_type !== 'new' && (
+                    <>
+                      <div>
+                        <Label>Plan</Label>
+                        <Select value={addForm.plan} onValueChange={v => setAddForm(p => ({ ...p, plan: v as 'monthly' | 'annual' }))}>
+                          <SelectTrigger className="rounded-[5px]"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="monthly">Monthly — R50/mo</SelectItem>
+                            <SelectItem value="annual">Annual — R500/yr</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Membership Inception Date</Label>
+                        <Input type="date" value={addForm.purchase_date} onChange={e => setAddForm(p => ({ ...p, purchase_date: e.target.value }))} />
+                      </div>
+                      <div>
+                        <Label>Membership Expiry Date</Label>
+                        <Input type="date" value={addForm.expires_at} onChange={e => setAddForm(p => ({ ...p, expires_at: e.target.value }))} />
+                      </div>
+                    </>
+                  )}
+                  {addForm.member_type === 'new' && (
+                    <div className="flex items-start gap-2 p-3 rounded-[5px] bg-muted border border-border">
+                      <p className="text-xs text-muted-foreground">Plan, inception and expiry dates will be set automatically when the member selects a package during onboarding.</p>
+                    </div>
+                  )}
                   {!sendInviteEmails && (
                     <div className="flex items-start gap-2 p-3 rounded-[5px] bg-amber-50 border border-amber-200">
                       <MailX className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
