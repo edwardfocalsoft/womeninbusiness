@@ -171,7 +171,6 @@ serve(async (req) => {
           queue_name: "transactional_emails",
           payload: {
             message_id: messageId,
-            run_id: messageId,
             to: recipientEmail,
             from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
             sender_domain: SENDER_DOMAIN,
