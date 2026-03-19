@@ -220,9 +220,17 @@ export default function AdminMembers() {
     return matchesSearch && (statusFilter === 'all' || status === statusFilter);
   });
 
+  // Reset pages when filters change
+  useEffect(() => { setMemberPage(1); }, [search, statusFilter]);
+
   const activeCount = members.filter(m => m.status === 'active' && new Date(m.expires_at) >= new Date()).length;
   const expiredCount = members.filter(m => m.status === 'expired' || (m.status === 'active' && new Date(m.expires_at) < new Date())).length;
   const cancelledCount = members.filter(m => m.status === 'cancelled').length;
+
+  const memberTotalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+  const paginatedMembers = filtered.slice((memberPage - 1) * PER_PAGE, memberPage * PER_PAGE);
+  const pendingTotalPages = Math.max(1, Math.ceil(pendingMembers.length / PER_PAGE));
+  const paginatedPending = pendingMembers.slice((pendingPage - 1) * PER_PAGE, pendingPage * PER_PAGE);
 
   if (authLoading) return <div className="min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
 
