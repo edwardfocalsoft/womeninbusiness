@@ -1,4 +1,4 @@
-import { ReactNode, useState, useEffect, useCallback } from 'react';
+import { ReactNode, useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
@@ -15,28 +15,24 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const { user, isAdmin } = useAuth();
   const [showPreloader, setShowPreloader] = useState(true);
-  const [content, setContent] = useState<ReactNode>(null);
+  const prevPathRef = useRef(location.pathname);
 
   const isPublic = publicRoutes.includes(location.pathname);
   const isBare = bareRoutes.includes(location.pathname);
-  const isAdminRoute = location.pathname.startsWith('/admin');
   const showSidebar = user && !isPublic && !isBare;
 
+  // Only show preloader on actual route changes, not tab switches
   useEffect(() => {
-    setShowPreloader(true);
-    window.scrollTo(0, 0);
+    if (prevPathRef.current !== location.pathname) {
+      prevPathRef.current = location.pathname;
+      setShowPreloader(true);
+      window.scrollTo(0, 0);
+    }
   }, [location.pathname]);
 
-  const handlePreloaderComplete = useCallback(() => {
+  const handlePreloaderComplete = () => {
     setShowPreloader(false);
-    setContent(children);
-  }, [children]);
-
-  useEffect(() => {
-    if (!showPreloader) {
-      setContent(children);
-    }
-  }, [children, showPreloader]);
+  };
 
   if (showSidebar) {
     return (
@@ -50,7 +46,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               <SidebarTrigger />
             </div>
             <main className="flex-1 px-4 sm:px-6 lg:px-8">
-              {showPreloader ? null : content}
+              {children}
             </main>
             <Footer />
           </div>
@@ -63,7 +59,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return (
       <div className="min-h-screen flex flex-col">
         {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
-        <main className="flex-1">{showPreloader ? null : content}</main>
+        <main className="flex-1">{children}</main>
       </div>
     );
   }
@@ -72,7 +68,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col">
       {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
       <Navbar />
-      <main className="flex-1 pt-16">{showPreloader ? null : content}</main>
+      <main className="flex-1 pt-16">{children}</main>
       <Footer />
     </div>
   );
