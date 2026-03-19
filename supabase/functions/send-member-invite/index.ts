@@ -32,6 +32,27 @@ const normalizeMemberType = (value: string | undefined): MemberType => {
   return "new";
 };
 
+const getRequestRunId = (req: Request, explicitRunId: unknown): string | null => {
+  if (typeof explicitRunId === "string" && explicitRunId.trim().length > 0) {
+    return explicitRunId.trim();
+  }
+
+  const candidates = [
+    req.headers.get("x-lovable-run-id"),
+    req.headers.get("x-run-id"),
+    req.headers.get("x-lovable-runid"),
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  const executionRunId = (Deno.env.get("SB_EXECUTION_ID") || "").trim();
+  return executionRunId || null;
+};
+
 function getInviteCopy(memberType: MemberType, fullName: string, inviteUrl: string) {
   const firstName = fullName.trim().split(" ")[0] || fullName;
 
@@ -123,7 +144,7 @@ serve(async (req) => {
 
     if (!roles?.some((r) => r.role === "admin")) throw new Error("Not authorized");
 
-    const { email, full_name, send_email, member_type } = await req.json();
+    const { email, full_name, send_email, member_type, run_id } = await req.json();
 
     const recipientEmail = String(email || "").trim().toLowerCase();
     const recipientName = String(full_name || "").trim();
@@ -134,6 +155,7 @@ serve(async (req) => {
 
     const memberType = normalizeMemberType(member_type);
     const siteUrl = getSiteUrl();
+    const requestRunId = getRequestRunId(req, run_id);
     const inviteUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(recipientEmail)}&full_name=${encodeURIComponent(recipientName)}&member_type=${memberType}`;
 
     const { data: settings } = await supabase
@@ -171,7 +193,7 @@ serve(async (req) => {
           queue_name: "transactional_emails",
           payload: {
             message_id: messageId,
-            run_id: crypto.randomUUID(),
+            ...(requestRunId ? { run_id: requestRunId } : {}),
             to: recipientEmail,
             from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
             sender_domain: SENDER_DOMAIN,
