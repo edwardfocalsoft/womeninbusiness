@@ -43,6 +43,23 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+function getDispatchRunId(req: Request): string | null {
+  const candidates = [
+    req.headers.get('x-lovable-run-id'),
+    req.headers.get('x-run-id'),
+    req.headers.get('x-lovable-runid'),
+    Deno.env.get('SB_EXECUTION_ID') ?? '',
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate && candidate.trim().length > 0) {
+      return candidate.trim()
+    }
+  }
+
+  return null
+}
+
 Deno.serve(async (req) => {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -64,8 +81,7 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Defense in depth: verify_jwt=true already requires a valid JWT at the
-  // gateway layer. This adds an explicit role check so only service-role
+  // Defense in depth: explicit role check so only service-role
   // callers can trigger queue processing.
   const token = authHeader.slice('Bearer '.length).trim()
   const claims = parseJwtClaims(token)
@@ -75,6 +91,8 @@ Deno.serve(async (req) => {
       { status: 403, headers: { 'Content-Type': 'application/json' } }
     )
   }
+
+  const dispatchRunId = getDispatchRunId(req)
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -241,10 +259,36 @@ Deno.serve(async (req) => {
         }
       }
 
+      const payloadRunId =
+        typeof payload?.run_id === 'string' && payload.run_id.trim().length > 0
+          ? payload.run_id.trim()
+          : null
+
+      const hasCanonicalPayloadRunId = Boolean(payloadRunId?.startsWith('run_'))
+      const runId = hasCanonicalPayloadRunId
+        ? payloadRunId
+        : (dispatchRunId ?? payloadRunId)
+
+      if (!runId) {
+        const errorMsg = 'Missing run_id in dispatcher context and payload'
+        console.error(errorMsg, { queue, msg_id: msg.msg_id, message_id: payload?.message_id })
+        await supabase.from('email_send_log').insert({
+          message_id: payload?.message_id,
+          template_name: payload?.label || queue,
+          recipient_email: payload?.to,
+          status: 'failed',
+          error_message: errorMsg,
+        })
+        if (payload?.message_id && typeof payload.message_id === 'string') {
+          failedAttemptsByMessageId.set(payload.message_id, failedAttempts + 1)
+        }
+        continue
+      }
+
       try {
         await sendLovableEmail(
           {
-            run_id: payload.run_id,
+            run_id: runId,
             to: payload.to,
             from: payload.from,
             sender_domain: payload.sender_domain,
@@ -287,6 +331,8 @@ Deno.serve(async (req) => {
           msg_id: msg.msg_id,
           read_ct: msg.read_ct,
           failed_attempts: failedAttempts,
+          dispatch_run_id: dispatchRunId,
+          payload_run_id: payloadRunId,
           error: errorMsg,
         })
 
