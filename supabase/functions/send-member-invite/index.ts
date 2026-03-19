@@ -156,13 +156,13 @@ serve(async (req) => {
       suppressed = Boolean(suppressedRows && suppressedRows.length > 0);
 
       if (!suppressed) {
-        const copy = getInviteCopy(memberType, full_name, inviteUrl);
+        const copy = getInviteCopy(memberType, recipientName, inviteUrl);
         const messageId = `member-invite-${crypto.randomUUID()}`;
 
         await supabase.from("email_send_log").insert({
           message_id: messageId,
           template_name: "member-invite",
-          recipient_email: email,
+          recipient_email: recipientEmail,
           status: "pending",
           metadata: { member_type: memberType },
         });
@@ -172,7 +172,7 @@ serve(async (req) => {
           payload: {
             message_id: messageId,
             run_id: messageId,
-            to: email,
+            to: recipientEmail,
             from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
             sender_domain: SENDER_DOMAIN,
             subject: copy.subject,
