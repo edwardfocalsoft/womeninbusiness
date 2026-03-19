@@ -92,7 +92,8 @@ Deno.serve(async (req) => {
     )
   }
 
-  const dispatcherRunId = extractRequestRunId(req)
+  const executionRunId = (Deno.env.get('SB_EXECUTION_ID') ?? '').trim()
+  const dispatcherRunId = extractRequestRunId(req) || executionRunId
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   // 1. Check rate-limit cooldown and read queue config
