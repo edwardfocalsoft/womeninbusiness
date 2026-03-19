@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,30 +8,98 @@ import { toast } from 'sonner';
 import { Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 export default function ResetPassword() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
-  const navigate = useNavigate();
+  const [isCheckingLink, setIsCheckingLink] = useState(true);
+
+  const search = searchParams.toString();
 
   useEffect(() => {
-    // Listen for the PASSWORD_RECOVERY event from the URL hash
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    let active = true;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (!active) return;
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovery(true);
+        setIsCheckingLink(false);
       }
     });
 
-    // Also check if there's a recovery token in the URL hash
-    const hash = window.location.hash;
-    if (hash.includes('type=recovery')) {
-      setIsRecovery(true);
-    }
+    const initializeRecovery = async () => {
+      try {
+        const queryParams = new URLSearchParams(search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
-    return () => subscription.unsubscribe();
-  }, []);
+        const queryType = queryParams.get('type');
+        const hashType = hashParams.get('type');
+        const isRecoveryType = queryType === 'recovery' || hashType === 'recovery';
+
+        const linkError = queryParams.get('error_description') || hashParams.get('error_description');
+        if (linkError) {
+          throw new Error(linkError);
+        }
+
+        const tokenHash = queryParams.get('token_hash') || hashParams.get('token_hash');
+        if (tokenHash && isRecoveryType) {
+          const { error } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+          if (!active) return;
+          setIsRecovery(true);
+          window.history.replaceState({}, document.title, '/reset-password');
+          return;
+        }
+
+        const code = queryParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (!active) return;
+          setIsRecovery(true);
+          window.history.replaceState({}, document.title, '/reset-password');
+          return;
+        }
+
+        if (hashParams.has('access_token') && isRecoveryType) {
+          setIsRecovery(true);
+          return;
+        }
+
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (!active) return;
+        setIsRecovery(Boolean(session?.user && isRecoveryType));
+      } catch (error) {
+        console.error('Failed to initialize password recovery', error);
+        if (!active) return;
+        setIsRecovery(false);
+      } finally {
+        if (active) {
+          setIsCheckingLink(false);
+        }
+      }
+    };
+
+    initializeRecovery();
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +140,18 @@ export default function ResetPassword() {
             <p className="text-muted-foreground text-sm">
               Your password has been reset. Redirecting you to sign in...
             </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isCheckingLink) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
+        <div className="w-full max-w-md text-center">
+          <div className="rounded-[5px] bg-card border border-border p-8 shadow-sm space-y-4">
+            <p className="text-muted-foreground text-sm">Validating reset link...</p>
           </div>
         </div>
       </div>
