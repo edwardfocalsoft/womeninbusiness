@@ -168,7 +168,7 @@ export default function AdminMembers() {
     });
 
     if (expiringMembers.length === 0) {
-      toast.info('No members have memberships expiring within 30 days.');
+      toast.info('No members have memberships expiring within 15 days.');
       return;
     }
 
