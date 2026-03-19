@@ -164,7 +164,7 @@ export default function AdminMembers() {
     const now = new Date();
     const expiringMembers = members.filter(m => {
       const daysLeft = differenceInDays(new Date(m.expires_at), now);
-      return m.status === 'active' && daysLeft >= 0 && daysLeft <= 30;
+      return m.status === 'active' && daysLeft >= 0 && daysLeft <= 15;
     });
 
     if (expiringMembers.length === 0) {
