@@ -9,7 +9,7 @@ const corsHeaders = {
 const LOGO_URL = 'https://mywbsqmluljyyfvpfbqv.supabase.co/storage/v1/object/public/email-assets/wib-logo.png';
 const SITE_NAME = 'Women In Business';
 const SENDER_DOMAIN = 'notify.womeninbusiness.livents.co.za';
-const FROM_DOMAIN = 'notify.womeninbusiness.livents.co.za';
+const FROM_DOMAIN = 'womeninbusiness.livents.co.za';
 
 function generateEmailHtml(template: string, data: Record<string, any>): { html: string; subject: string } {
   const baseStyle = `
@@ -165,6 +165,7 @@ serve(async (req) => {
       queue_name: 'transactional_emails',
       payload: {
         message_id: messageId,
+        run_id: crypto.randomUUID(),
         to,
         from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
         sender_domain: SENDER_DOMAIN,

@@ -10,7 +10,7 @@ const corsHeaders = {
 const DEFAULT_SITE_URL = "https://womeninbusiness.livents.co.za";
 const SITE_NAME = "Women In Business";
 const SENDER_DOMAIN = "notify.womeninbusiness.livents.co.za";
-const FROM_DOMAIN = "notify.womeninbusiness.livents.co.za";
+const FROM_DOMAIN = "womeninbusiness.livents.co.za";
 
 type MemberType = "new" | "active" | "expired";
 
@@ -171,6 +171,7 @@ serve(async (req) => {
           queue_name: "transactional_emails",
           payload: {
             message_id: messageId,
+            run_id: crypto.randomUUID(),
             to: recipientEmail,
             from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
             sender_domain: SENDER_DOMAIN,
