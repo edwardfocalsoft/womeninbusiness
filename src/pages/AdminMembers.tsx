@@ -83,13 +83,16 @@ export default function AdminMembers() {
     try {
       const purchaseDate = new Date(addForm.purchase_date);
       
+      const expiresAt = addForm.expires_at ? new Date(addForm.expires_at).toISOString() : null;
       const { error } = await supabase.from('pending_members').insert({
         full_name: addForm.full_name,
         email: addForm.email,
         plan: addForm.plan,
         purchase_date: purchaseDate.toISOString(),
+        member_type: addForm.member_type,
+        expires_at: expiresAt,
         added_by: (await supabase.auth.getUser()).data.user?.id,
-      });
+      } as any);
 
       if (error) throw error;
 
