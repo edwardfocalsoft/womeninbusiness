@@ -546,7 +546,14 @@ export default function Onboarding() {
             </div>
             <div>
               <Label>Products / Services *</Label>
-              <Input value={businessForm.products_services} onChange={e => setBusinessForm(p => ({ ...p, products_services: e.target.value }))} placeholder="What does your business offer?" />
+              <TagInput
+                value={businessForm.products_services}
+                onChange={v => setBusinessForm(p => ({ ...p, products_services: v }))}
+                placeholder="e.g. Catering, Event Planning..."
+                maxTags={10}
+                suggestions={SERVICE_SUGGESTIONS}
+              />
+            </div>
             </div>
             <div>
               <Label>Bio</Label>
