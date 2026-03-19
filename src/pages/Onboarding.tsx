@@ -9,7 +9,18 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2 } from 'lucide-react';
+import TagInput from '@/components/TagInput';
 import wibLogo from '@/assets/wib-logo.png';
+
+const SERVICE_SUGGESTIONS = [
+  'Catering', 'Event Planning', 'Graphic Design', 'Web Development',
+  'Photography', 'Marketing', 'Consulting', 'Training', 'Coaching',
+  'Beauty Services', 'Fashion Design', 'Interior Design', 'Accounting',
+  'Legal Services', 'Real Estate', 'Transport', 'Cleaning Services',
+  'Agriculture', 'Food Production', 'Retail', 'Import/Export',
+  'Social Media Management', 'Content Creation', 'PR & Communications',
+  'Health & Wellness', 'Fitness', 'Childcare', 'Tutoring', 'IT Support',
+];
 
 type OnboardingStep = 'payment' | 'business-details' | 'complete';
 
