@@ -28,7 +28,8 @@ const getRequestRunId = (req: Request, explicitRunId: unknown): string | null =>
     }
   }
 
-  return null;
+  const executionRunId = (Deno.env.get('SB_EXECUTION_ID') || '').trim();
+  return executionRunId || null;
 };
 
 function generateEmailHtml(template: string, data: Record<string, any>): { html: string; subject: string } {

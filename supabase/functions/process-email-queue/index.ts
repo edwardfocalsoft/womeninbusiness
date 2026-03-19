@@ -267,8 +267,12 @@ Deno.serve(async (req) => {
 
         const effectiveRunId =
           queue === 'transactional_emails'
-            ? (dispatcherRunId || payloadRunId || crypto.randomUUID())
-            : (payloadRunId || dispatcherRunId || crypto.randomUUID())
+            ? (dispatcherRunId || payloadRunId)
+            : (payloadRunId || dispatcherRunId)
+
+        if (!effectiveRunId) {
+          throw new Error('Email API error: missing run_id context')
+        }
 
         await sendLovableEmail(
           {
