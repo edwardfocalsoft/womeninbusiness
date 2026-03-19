@@ -103,6 +103,8 @@ export default function AdminMembers() {
           full_name: addForm.full_name, 
           plan: addForm.plan,
           purchase_date: format(purchaseDate, 'dd MMM yyyy'),
+          member_type: addForm.member_type,
+          expires_at: expiresAt,
           send_email: sendInviteEmails,
         },
       });
