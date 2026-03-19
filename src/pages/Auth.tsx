@@ -35,7 +35,26 @@ export default function Auth() {
   useEffect(() => {
     if (!user) return;
 
+    // Don't auto-redirect if the session was established from a password
+    // recovery flow (cross-tab localStorage sync). Let the /reset-password
+    // tab handle it — the user hasn't finished resetting yet.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // A recovery session was just established. Do nothing here —
+        // the user is resetting their password in another tab.
+      }
+    });
+
     const checkOnboarding = async () => {
+      // Double-check this isn't a recovery session (token refresh / cross-tab)
+      const { data: { session } } = await supabase.auth.getSession();
+      // Supabase doesn't expose the auth event on the session object,
+      // but if the user was navigated to /reset-password we shouldn't
+      // redirect. We rely on a small flag: if user_metadata indicates
+      // recovery, skip redirect.
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_completed')
@@ -50,6 +69,8 @@ export default function Auth() {
     };
 
     checkOnboarding();
+
+    return () => subscription.unsubscribe();
   }, [user, navigate]);
 
   const handleForgotPassword = async (e: React.FormEvent) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -18,88 +18,94 @@ export default function ResetPassword() {
   const [success, setSuccess] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
   const [isCheckingLink, setIsCheckingLink] = useState(true);
-
-  const search = searchParams.toString();
+  const resolvedRef = useRef(false);
 
   useEffect(() => {
     let active = true;
 
+    const resolve = (value: boolean) => {
+      if (!active || resolvedRef.current) return;
+      resolvedRef.current = true;
+      setIsRecovery(value);
+      setIsCheckingLink(false);
+    };
+
+    // 1) Listen for PASSWORD_RECOVERY event (fires if Supabase processes
+    //    the hash *after* this listener is registered — unlikely but possible)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event) => {
-      if (!active) return;
       if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-        setIsCheckingLink(false);
+        resolve(true);
       }
     });
 
-    const initializeRecovery = async () => {
+    // 2) Actively check whether we already have a session.
+    //    Supabase processes the recovery hash during client init (before
+    //    React mounts), so by now the session is already established and
+    //    the PASSWORD_RECOVERY event has already fired.  A valid session
+    //    on /reset-password is sufficient proof the user came from a
+    //    recovery link — normal users never navigate here directly.
+    const checkSession = async () => {
       try {
-        const queryParams = new URLSearchParams(search);
-        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-
-        const queryType = queryParams.get('type');
-        const hashType = hashParams.get('type');
-        const isRecoveryType = queryType === 'recovery' || hashType === 'recovery';
-
-        const linkError = queryParams.get('error_description') || hashParams.get('error_description');
-        if (linkError) {
-          throw new Error(linkError);
+        // Handle PKCE code exchange if present
+        const code = searchParams.get('code');
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          if (active) {
+            window.history.replaceState({}, document.title, '/reset-password');
+            resolve(true);
+          }
+          return;
         }
 
-        const tokenHash = queryParams.get('token_hash') || hashParams.get('token_hash');
-        if (tokenHash && isRecoveryType) {
+        // Handle token_hash if present (email OTP flow)
+        const tokenHash =
+          searchParams.get('token_hash') ||
+          new URLSearchParams(window.location.hash.replace(/^#/, '')).get('token_hash');
+        const type =
+          searchParams.get('type') ||
+          new URLSearchParams(window.location.hash.replace(/^#/, '')).get('type');
+
+        if (tokenHash && type === 'recovery') {
           const { error } = await supabase.auth.verifyOtp({
             type: 'recovery',
             token_hash: tokenHash,
           });
           if (error) throw error;
-          if (!active) return;
-          setIsRecovery(true);
-          window.history.replaceState({}, document.title, '/reset-password');
+          if (active) {
+            window.history.replaceState({}, document.title, '/reset-password');
+            resolve(true);
+          }
           return;
         }
 
-        const code = queryParams.get('code');
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-          if (!active) return;
-          setIsRecovery(true);
-          window.history.replaceState({}, document.title, '/reset-password');
-          return;
-        }
-
-        if (hashParams.has('access_token') && isRecoveryType) {
-          setIsRecovery(true);
-          return;
-        }
-
+        // Fallback: check if session already exists (hash was already consumed)
         const {
           data: { session },
         } = await supabase.auth.getSession();
 
-        if (!active) return;
-        setIsRecovery(Boolean(session?.user && isRecoveryType));
-      } catch (error) {
-        console.error('Failed to initialize password recovery', error);
-        if (!active) return;
-        setIsRecovery(false);
-      } finally {
         if (active) {
-          setIsCheckingLink(false);
+          resolve(Boolean(session));
         }
+      } catch (err) {
+        console.error('Recovery link processing failed', err);
+        if (active) resolve(false);
       }
     };
 
-    initializeRecovery();
+    checkSession();
+
+    // Safety net: if nothing resolves within 4s, show invalid
+    const timeout = setTimeout(() => resolve(false), 4000);
 
     return () => {
       active = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
-  }, [search]);
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +124,10 @@ export default function ResetPassword() {
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+
+      // Sign out so the cross-tab session doesn't auto-redirect on /auth
+      await supabase.auth.signOut();
+
       setSuccess(true);
       toast.success('Password updated successfully!');
       setTimeout(() => navigate('/auth'), 2000);
@@ -151,7 +161,7 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
         <div className="w-full max-w-md text-center">
           <div className="rounded-[5px] bg-card border border-border p-8 shadow-sm space-y-4">
-            <p className="text-muted-foreground text-sm">Validating reset link...</p>
+            <p className="text-muted-foreground text-sm">Validating reset link…</p>
           </div>
         </div>
       </div>
