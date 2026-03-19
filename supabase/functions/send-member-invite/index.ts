@@ -124,11 +124,17 @@ serve(async (req) => {
     if (!roles?.some((r) => r.role === "admin")) throw new Error("Not authorized");
 
     const { email, full_name, send_email, member_type } = await req.json();
-    if (!email || !full_name) throw new Error("Email and full name are required");
+
+    const recipientEmail = String(email || "").trim().toLowerCase();
+    const recipientName = String(full_name || "").trim();
+
+    if (!recipientEmail || !recipientName) {
+      throw new Error("Email and full name are required");
+    }
 
     const memberType = normalizeMemberType(member_type);
     const siteUrl = getSiteUrl();
-    const inviteUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(email)}&full_name=${encodeURIComponent(full_name)}&member_type=${memberType}`;
+    const inviteUrl = `${siteUrl}/auth?tab=signup&invited=true&email=${encodeURIComponent(recipientEmail)}&full_name=${encodeURIComponent(recipientName)}&member_type=${memberType}`;
 
     const { data: settings } = await supabase
       .from("admin_settings")
@@ -144,7 +150,7 @@ serve(async (req) => {
       const { data: suppressedRows } = await supabase
         .from("suppressed_emails")
         .select("id")
-        .eq("email", email)
+        .eq("email", recipientEmail)
         .limit(1);
 
       suppressed = Boolean(suppressedRows && suppressedRows.length > 0);
