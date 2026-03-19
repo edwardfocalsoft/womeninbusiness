@@ -27,6 +27,9 @@ export default function AdminMembers() {
   const [addLoading, setAddLoading] = useState(false);
   const [sendInviteEmails, setSendInviteEmails] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  const [memberPage, setMemberPage] = useState(1);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [detailMember, setDetailMember] = useState<any>(null);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
   useEffect(() => { if (isAdmin) { fetchMembers(); fetchPending(); fetchSettings(); } }, [isAdmin]);
