@@ -21,7 +21,7 @@ export default function AdminMembers() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ full_name: '', email: '', plan: 'monthly' as 'monthly' | 'annual', purchase_date: new Date().toISOString().split('T')[0] });
+  const [addForm, setAddForm] = useState({ full_name: '', email: '', plan: 'monthly' as 'monthly' | 'annual', purchase_date: new Date().toISOString().split('T')[0], expires_at: '', member_type: 'new' as 'new' | 'active' | 'expired' });
   const [addLoading, setAddLoading] = useState(false);
   const [sendInviteEmails, setSendInviteEmails] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(false);
