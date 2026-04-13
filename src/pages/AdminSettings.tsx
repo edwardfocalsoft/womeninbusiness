@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 
 export default function AdminSettings() {
-  const [orgName, setOrgName] = useState('Women In Business');
+  const [orgName, setOrgName] = useState('Livents');
   const [orgEmail, setOrgEmail] = useState('ceo@womeninbusiness.org.za');
   const [orgPhone, setOrgPhone] = useState('074 589 2042');
   const [monthlyPrice, setMonthlyPrice] = useState('50');

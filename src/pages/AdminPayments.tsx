@@ -73,7 +73,7 @@ export default function AdminPayments() {
 
   const generateInvoice = (payment: any) => {
     const profile = getProfile(payment.user_id);
-    const invoiceNumber = `WIB-INV-${format(new Date(payment.created_at), 'yyyyMMdd')}-${payment.id.substring(0, 6).toUpperCase()}`;
+    const invoiceNumber = `LIV-INV-${format(new Date(payment.created_at), 'yyyyMMdd')}-${payment.id.substring(0, 6).toUpperCase()}`;
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<html><head><title>Invoice ${invoiceNumber}</title><style>
@@ -94,8 +94,8 @@ export default function AdminPayments() {
       .footer { margin-top: 32px; font-size: 10px; color: #aaa; text-align: center; }
       @media print { body { margin: 0; } }
     </style></head><body>
-      <h1>Women In Business</h1>
-      <p class="subtitle">Non Profit Organisation (2020/911027/08)</p>
+      <h1>Livents</h1>
+      <p class="subtitle">Event & Membership Management</p>
       <div class="invoice-header">
         <div>
           <p class="invoice-number"><strong>Invoice:</strong> ${invoiceNumber}</p>
@@ -120,7 +120,7 @@ export default function AdminPayments() {
       <p style="font-size:12px;color:#666;"><strong>Payment Method:</strong> ${payment.payment_method === 'payfast' ? 'PayFast' : 'EFT / Offline'}</p>
       ${payment.payment_reference ? `<p style="font-size:12px;color:#666;"><strong>Reference:</strong> ${payment.payment_reference}</p>` : ''}
       <div class="footer">
-        <p>Women In Business · Capitec Bank · Branch 470010 · Account 1972031382</p>
+        <p>Livents · Capitec Bank · Branch 470010 · Account 1972031382</p>
         <p>Thank you for your support!</p>
       </div>
     </body></html>`);
