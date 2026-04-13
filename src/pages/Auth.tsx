@@ -166,7 +166,7 @@ export default function Auth() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-2">Women In Business</p>
+            <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-2">Livents</p>
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Reset Password</h1>
             <p className="text-muted-foreground text-sm">
               Enter your email and we'll send you a reset link
@@ -210,12 +210,12 @@ export default function Auth() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-2">Women In Business</p>
+          <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-2">Livents</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
             {isSignUp ? 'Create Account' : 'Welcome Back'}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {isSignUp ? 'Register to become a WIB member' : 'Sign in to your member portal'}
+            {isSignUp ? 'Register to get started' : 'Sign in to your portal'}
           </p>
         </div>
 

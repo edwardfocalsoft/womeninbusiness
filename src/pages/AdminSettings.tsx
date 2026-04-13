@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 
 export default function AdminSettings() {
-  const [orgName, setOrgName] = useState('Women In Business');
+  const [orgName, setOrgName] = useState('Livents');
   const [orgEmail, setOrgEmail] = useState('ceo@womeninbusiness.org.za');
   const [orgPhone, setOrgPhone] = useState('074 589 2042');
   const [monthlyPrice, setMonthlyPrice] = useState('50');
@@ -125,7 +125,7 @@ export default function AdminSettings() {
               <Separator />
               <div className="p-4 rounded-[5px] bg-background border border-border">
                 <p className="text-sm font-medium text-foreground mb-1">Platform Version</p>
-                <p className="text-xs text-muted-foreground">Women In Business Membership Portal v1.0</p>
+                <p className="text-xs text-muted-foreground">Livents Event & Membership Platform v2.0</p>
               </div>
             </div>
           </div>

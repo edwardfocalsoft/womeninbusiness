@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
-import wibLogo from '@/assets/wib-logo.png';
+import liventsLogoAlt from '@/assets/livents-logo-alt.png';
 
 export default function AdminAuth() {
   const [email, setEmail] = useState('');
@@ -60,14 +60,14 @@ export default function AdminAuth() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-20">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <img src={wibLogo} alt="Women In Business" className="h-16 mx-auto mb-4" />
+          <img src={liventsLogoAlt} alt="Livents" className="h-12 mx-auto mb-4" />
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase mb-4">
             <ShieldCheck className="w-4 h-4" />
             Admin Portal
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Admin Sign In</h1>
           <p className="text-muted-foreground text-sm">
-            Access the Women In Business administration panel
+            Access the Livents administration panel
           </p>
         </div>
         <form onSubmit={handleSubmit} className="rounded-[5px] bg-card border border-border p-6 sm:p-8 space-y-4 shadow-sm">

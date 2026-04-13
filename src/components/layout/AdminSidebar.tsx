@@ -1,43 +1,51 @@
 import {
-  Users, BarChart3, Calendar, Megaphone, BookOpen, Shield, Settings, UserCog, CreditCard,
+  Users, BarChart3, Calendar, Megaphone, Shield, Settings, UserCog, CreditCard,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
-  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel,
+  Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent,
   SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar,
 } from '@/components/ui/sidebar';
+import liventsLogo from '@/assets/livents-logo.png';
 
 const adminItems = [
-  { title: 'Members', url: '/admin/members', icon: Users },
+  { title: 'Dashboard', url: '/admin/members', icon: LayoutDashboard },
   { title: 'Payments', url: '/admin/payments', icon: CreditCard },
-  { title: 'Analytics', url: '/admin/analytics', icon: BarChart3 },
+  { title: 'Members', url: '/admin/members', icon: Users },
   { title: 'Events', url: '/admin/events', icon: Calendar },
   { title: 'Announcements', url: '/admin/announcements', icon: Megaphone },
   { title: 'Resources', url: '/admin/resources', icon: BookOpen },
-  { title: 'Users & Roles', url: '/admin/users', icon: UserCog },
+  { title: 'User & Roles', url: '/admin/users', icon: UserCog },
 ];
 
 const systemItems = [
   { title: 'Admin Settings', url: '/admin/settings', icon: Settings },
 ];
 
+import { LayoutDashboard, BookOpen } from 'lucide-react';
+
 export default function AdminSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border">
-      <SidebarContent className="pt-2">
+    <Sidebar collapsible="icon" className="border-r-0">
+      <SidebarContent className="pt-0">
+        {/* Logo area */}
+        {!collapsed && (
+          <div className="px-4 py-5 flex items-center justify-center">
+            <img src={liventsLogo} alt="Livents" className="h-8 object-contain" />
+          </div>
+        )}
+        {collapsed && <div className="h-4" />}
+
         <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center gap-2">
-            <Shield className="h-3 w-3" /> Admin Portal
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {adminItems.map(item => (
-                <SidebarMenuItem key={item.url}>
+                <SidebarMenuItem key={item.url + item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className="hover:bg-muted/50" activeClassName="bg-primary/10 text-primary font-semibold">
+                    <NavLink to={item.url} end className="hover:bg-sidebar-accent/50 text-sidebar-foreground" activeClassName="bg-sidebar-accent text-sidebar-foreground font-semibold">
                       <item.icon className="h-4 w-4 mr-2" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -48,14 +56,13 @@ export default function AdminSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>System</SidebarGroupLabel>
+        <SidebarGroup className="mt-auto">
           <SidebarGroupContent>
             <SidebarMenu>
               {systemItems.map(item => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end className="hover:bg-muted/50" activeClassName="bg-primary/10 text-primary font-semibold">
+                    <NavLink to={item.url} end className="hover:bg-sidebar-accent/50 text-sidebar-foreground" activeClassName="bg-sidebar-accent text-sidebar-foreground font-semibold">
                       <item.icon className="h-4 w-4 mr-2" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>

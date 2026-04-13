@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import wibLogo from '@/assets/wib-logo.png';
+import liventsLogoAlt from '@/assets/livents-logo-alt.png';
 
 interface PagePreloaderProps {
   onComplete: () => void;
@@ -32,7 +32,7 @@ export default function PagePreloader({ onComplete }: PagePreloaderProps) {
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="flex flex-col items-center gap-4"
           >
-            <img src={wibLogo} alt="Women In Business" className="w-48 md:w-64 object-contain" />
+            <img src={liventsLogoAlt} alt="Livents" className="w-48 md:w-64 object-contain" />
             <motion.div
               className="h-1 bg-accent rounded-full"
               initial={{ width: 0 }}
