@@ -9,7 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import MembershipCard from "./pages/MembershipCard";
-import EventHistory from "./pages/EventHistory";
+// EventHistory merged into Events page
 import Announcements from "./pages/Announcements";
 import Receipts from "./pages/Receipts";
 import Events from "./pages/Events";
