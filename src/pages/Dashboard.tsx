@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CreditCard, AlertCircle, CheckCircle2, RefreshCw, Megaphone, Download, FileText, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { CreditCard, AlertCircle, RefreshCw, Download, FileText, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,9 @@ export default function Dashboard() {
   useEffect(() => { 
     if (!authLoading && isAdmin) navigate('/admin/members', { replace: true }); 
   }, [isAdmin, authLoading, navigate]);
+
   const [profile, setProfile] = useState<any>(null);
   const [membership, setMembership] = useState<any>(null);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [receiptPage, setReceiptPage] = useState(1);
@@ -31,10 +31,9 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [profileRes, membershipRes, announcementsRes] = await Promise.all([
+    const [profileRes, membershipRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('memberships').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      supabase.from('announcements').select('*').eq('is_published', true).order('created_at', { ascending: false }).limit(3),
     ]);
 
     const p = profileRes.data;
@@ -46,7 +45,6 @@ export default function Dashboard() {
 
     setProfile(p);
     setMembership(m);
-    setAnnouncements(announcementsRes.data || []);
     setLoading(false);
   };
 
@@ -66,14 +64,6 @@ export default function Dashboard() {
       fetchData();
     } catch (err: any) { toast.error(err.message); }
     setActionLoading(false);
-  };
-
-  const getPriorityColor = (p: string) => {
-    switch (p) {
-      case 'urgent': return 'bg-red-100 text-red-700 border-red-200';
-      case 'high': return 'bg-amber-100 text-amber-700 border-amber-200';
-      default: return 'bg-secondary text-secondary-foreground';
-    }
   };
 
   const generateReceipt = (plan: string, date: string) => {
@@ -140,7 +130,6 @@ export default function Dashboard() {
   const daysUntilExpiry = membership && isActive ? differenceInDays(new Date(membership.expires_at), new Date()) : null;
   const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 10 && daysUntilExpiry >= 0;
 
-  // Generate mock receipt history from membership data
   const receipts: { id: string; plan: string; date: string; amount: string }[] = [];
   if (membership) {
     const start = new Date(membership.starts_at);
@@ -166,194 +155,133 @@ export default function Dashboard() {
 
   return (
     <div className="py-8">
-      <div className="px-0">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Dashboard</h1>
           <p className="text-muted-foreground text-sm">Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}.</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Column */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Membership Status */}
-            <div className="rounded-[5px] border border-border bg-card p-5 sm:p-8 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg sm:text-xl font-bold">Membership Status</h2>
-                {isActive && <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>}
-                {isExpired && <Badge className="bg-amber-100 text-amber-700 border-amber-200">Expired</Badge>}
-              </div>
-
-              {membership && (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <div className="p-3 sm:p-4 rounded-[5px] bg-background border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Member ID</p>
-                      <p className="font-mono font-bold text-base sm:text-lg text-primary">{membership.member_id || '—'}</p>
-                    </div>
-                    <div className="p-3 sm:p-4 rounded-[5px] bg-background border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Plan</p>
-                      <p className="font-bold capitalize">{membership.plan}</p>
-                    </div>
-                    <div className="p-3 sm:p-4 rounded-[5px] bg-background border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Start Date</p>
-                      <p className="font-semibold text-xs sm:text-sm">{format(new Date(membership.starts_at), 'dd MMM yyyy')}</p>
-                    </div>
-                    <div className="p-3 sm:p-4 rounded-[5px] bg-background border border-border">
-                      <p className="text-xs text-muted-foreground mb-1">Expires</p>
-                      <p className="font-semibold text-xs sm:text-sm">{format(new Date(membership.expires_at), 'dd MMM yyyy')}</p>
-                    </div>
-                  </div>
-
-                  {isExpiringSoon && (
-                    <div className="flex items-start gap-3 p-4 rounded-[5px] bg-amber-50 border border-amber-200">
-                      <Bell className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-semibold text-amber-800">Membership expiring soon</p>
-                        <p className="text-xs text-amber-600">Your membership expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}. Renew now to avoid interruption.</p>
-                      </div>
-                      <Button size="sm" className="ml-auto shrink-0" onClick={handleRenew} disabled={actionLoading}>Renew Now</Button>
-                    </div>
-                  )}
-                  {isExpired && (
-                    <div className="flex items-start gap-3 p-4 rounded-[5px] bg-amber-50 border border-amber-200">
-                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-semibold text-amber-800">Your membership has expired</p>
-                        <p className="text-xs text-amber-600">Renew now to continue enjoying member benefits.</p>
-                      </div>
-                      <Button size="sm" className="ml-auto shrink-0" onClick={handleRenew} disabled={actionLoading}>
-                        <RefreshCw className="w-4 h-4 mr-1" /> Renew
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+        <div className="flex flex-col gap-6">
+          {/* Top Row: Full Width Membership Status */}
+          <div className="rounded-[5px] border border-border bg-card p-5 sm:p-8 shadow-sm w-full">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg sm:text-xl font-bold">Membership Status</h2>
+              {isActive && <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>}
+              {isExpired && <Badge className="bg-amber-100 text-amber-700 border-amber-200">Expired</Badge>}
             </div>
 
-            {/* Membership Card + Receipts side by side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Membership Card */}
-              {membership && (
-                <div className="rounded-[5px] border border-border bg-card p-5 shadow-sm">
-                  <h2 className="text-lg font-bold mb-4">Membership Card</h2>
-                  <div className="rounded-[5px] bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-6 shadow-lg">
+            {membership && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-4 rounded-[5px] bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Member ID</p>
+                    <p className="font-mono font-bold text-lg text-primary">{membership.member_id || '—'}</p>
+                  </div>
+                  <div className="p-4 rounded-[5px] bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Plan</p>
+                    <p className="font-bold capitalize">{membership.plan}</p>
+                  </div>
+                  <div className="p-4 rounded-[5px] bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Start Date</p>
+                    <p className="font-semibold text-sm">{format(new Date(membership.starts_at), 'dd MMM yyyy')}</p>
+                  </div>
+                  <div className="p-4 rounded-[5px] bg-background border border-border">
+                    <p className="text-xs text-muted-foreground mb-1">Expires</p>
+                    <p className="font-semibold text-sm">{format(new Date(membership.expires_at), 'dd MMM yyyy')}</p>
+                  </div>
+                </div>
+
+                {isExpiringSoon && (
+                  <div className="flex items-center gap-3 p-4 rounded-[5px] bg-amber-50 border border-amber-200">
+                    <Bell className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-800">Membership expiring soon</p>
+                      <p className="text-xs text-amber-600">Expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}.</p>
+                    </div>
+                    <Button size="sm" onClick={handleRenew} disabled={actionLoading}>Renew Now</Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom Row: Card and Receipts side by side */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+            {/* Membership Card */}
+            {membership && (
+              <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
+                <div>
+                  <h2 className="text-lg font-bold mb-6">Membership Card</h2>
+                  <div className="rounded-[5px] bg-gradient-to-br from-primary to-primary/80 text-primary-foreground p-8 shadow-lg">
                     <p className="text-[10px] uppercase tracking-[0.2em] opacity-70 mb-1">Livents</p>
-                    <h2 className="text-lg font-bold">{profile?.full_name || 'Member'}</h2>
-                    {profile?.business_name && <p className="text-xs opacity-80 mt-1">{profile.business_name}</p>}
-                    <div className="my-4">
-                      <p className="font-mono text-xl font-bold tracking-[4px]">{membership.member_id || '—'}</p>
+                    <h2 className="text-xl font-bold">{profile?.full_name || 'Member'}</h2>
+                    {profile?.business_name && <p className="text-sm opacity-80 mt-1">{profile.business_name}</p>}
+                    <div className="my-6">
+                      <p className="font-mono text-2xl font-bold tracking-[4px]">{membership.member_id || '—'}</p>
                       <p className="text-[10px] uppercase tracking-widest opacity-60 mt-1">Member ID</p>
                     </div>
                     <div className="flex justify-between text-xs">
                       <div>
                         <p className="text-[10px] opacity-60 uppercase">Plan</p>
-                        <p className="capitalize font-semibold">{membership.plan}</p>
+                        <p className="capitalize font-semibold text-sm">{membership.plan}</p>
                       </div>
                       <div>
                         <p className="text-[10px] opacity-60 uppercase">Valid Until</p>
-                        <p className="font-semibold">{format(new Date(membership.expires_at), 'dd MMM yyyy')}</p>
+                        <p className="font-semibold text-sm">{format(new Date(membership.expires_at), 'dd MMM yyyy')}</p>
                       </div>
                     </div>
                   </div>
-                  <Button className="mt-4 gap-2 w-full" size="sm" onClick={downloadCard}>
-                    <Download className="w-4 h-4" /> Download Card
-                  </Button>
                 </div>
-              )}
-
-              {/* Receipts */}
-              <div className="rounded-[5px] border border-border bg-card p-5 shadow-sm">
-                <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><FileText className="w-5 h-5 text-primary" /> Receipts</h2>
-                {receipts.length > 0 ? (
-                  <div className="space-y-2">
-                    {paginatedReceipts.map(r => (
-                      <div key={r.id} className="rounded-[5px] border border-border bg-background p-3 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-semibold text-xs">Membership</p>
-                          <div className="flex gap-3 text-[11px] text-muted-foreground mt-0.5">
-                            <span className="capitalize">{r.plan}</span>
-                            <span>{format(new Date(r.date), 'dd MMM yyyy')}</span>
-                            <span className="font-semibold text-foreground">{r.amount}</span>
-                          </div>
-                        </div>
-                        <Button variant="outline" size="sm" className="gap-1 shrink-0 text-xs" onClick={() => generateReceipt(r.plan, r.date)}>
-                          <Download className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-                    {totalReceiptPages > 1 && (
-                      <div className="flex items-center justify-between pt-2 border-t border-border">
-                        <p className="text-[10px] text-muted-foreground">Page {receiptPage}/{totalReceiptPages}</p>
-                        <div className="flex gap-1">
-                          <Button variant="outline" size="sm" disabled={receiptPage <= 1} onClick={() => setReceiptPage(p => p - 1)}>
-                            <ChevronLeft className="w-3 h-3" />
-                          </Button>
-                          <Button variant="outline" size="sm" disabled={receiptPage >= totalReceiptPages} onClick={() => setReceiptPage(p => p + 1)}>
-                            <ChevronRight className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No payment history yet.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-4">
-            {/* Quick Links */}
-            <div className="rounded-[5px] border border-border bg-card p-5 shadow-sm space-y-3">
-              <h3 className="font-bold text-sm mb-2">Quick Links</h3>
-              {[
-                { to: '/events', icon: CreditCard, label: 'Browse Events' },
-                { to: '/announcements', icon: Megaphone, label: 'Announcements' },
-                { to: '/network', icon: CreditCard, label: 'Directory' },
-                { to: '/settings', icon: CreditCard, label: 'Settings' },
-              ].map(link => (
-                <Link key={link.to} to={link.to} className="flex items-center gap-3 p-3 rounded-[5px] bg-background border border-border hover:shadow transition-shadow">
-                  <link.icon className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">{link.label}</span>
-                </Link>
-              ))}
-            </div>
-
-            {/* EFT Details */}
-            <div className="rounded-[5px] border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <CreditCard className="w-4 h-4 text-primary" />
-                <h3 className="font-bold text-sm">EFT Payment</h3>
-              </div>
-              <div className="space-y-1 text-xs text-muted-foreground">
-                <p><span className="font-semibold text-foreground">Bank:</span> Capitec</p>
-                <p><span className="font-semibold text-foreground">Branch:</span> 470010</p>
-                <p><span className="font-semibold text-foreground">Acc:</span> 1972031382</p>
-              </div>
-            </div>
-
-            {/* Latest Announcements Preview */}
-            {announcements.length > 0 && (
-              <div className="rounded-[5px] border border-border bg-card p-5 shadow-sm">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Megaphone className="w-4 h-4 text-primary" /> Latest Updates</h3>
-                <div className="space-y-2">
-                  {announcements.map(a => (
-                    <div key={a.id} className="p-2 rounded-[5px] bg-background border border-border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="text-xs font-bold truncate flex-1">{a.title}</p>
-                        <Badge className={`text-[10px] ${getPriorityColor(a.priority)}`}>{a.priority}</Badge>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">{format(new Date(a.created_at), 'dd MMM yyyy')}</p>
-                    </div>
-                  ))}
-                </div>
-                <Link to="/announcements" className="text-xs text-primary hover:underline mt-2 inline-block">View all →</Link>
+                <Button className="mt-6 gap-2 w-full" size="lg" onClick={downloadCard}>
+                  <Download className="w-5 h-5" /> Download Card
+                </Button>
               </div>
             )}
+
+            {/* Receipts */}
+            <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
+              <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" /> Receipts
+              </h2>
+              {receipts.length > 0 ? (
+                <div className="space-y-3">
+                  {paginatedReceipts.map(r => (
+                    <div key={r.id} className="rounded-[5px] border border-border bg-background p-4 flex items-center justify-between">
+                      <div>
+                        <p className="font-bold text-sm">Membership Payment</p>
+                        <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+                          <span className="capitalize">{r.plan}</span>
+                          <span>{format(new Date(r.date), 'dd MMM yyyy')}</span>
+                          <span className="font-bold text-foreground">{r.amount}</span>
+                        </div>
+                      </div>
+                      <Button variant="outline" size="icon" onClick={() => generateReceipt(r.plan, r.date)}>
+                        <Download className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {totalReceiptPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+                      <p className="text-xs text-muted-foreground">Page {receiptPage} of {totalReceiptPages}</p>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" disabled={receiptPage <= 1} onClick={() => setReceiptPage(p => p - 1)}>
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" disabled={receiptPage >= totalReceiptPages} onClick={() => setReceiptPage(p => p + 1)}>
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No payment history found.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
