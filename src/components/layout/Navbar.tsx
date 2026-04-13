@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import wibLogo from '@/assets/wib-logo.png';
+import liventsLogoAlt from '@/assets/livents-logo-alt.png';
 import NotificationBell from '@/components/NotificationBell';
 
 export default function Navbar() {
@@ -19,7 +19,7 @@ export default function Navbar() {
     <nav className={`${isPublic ? 'fixed top-0 left-0 right-0 z-50' : 'sticky top-0 z-50'} bg-background/95 backdrop-blur-md border-b border-border`}>
       <div className="flex items-center justify-between h-14 px-4">
         <Link to={user ? '/dashboard' : '/'} className="shrink-0">
-          <img src={wibLogo} alt="Women In Business" className="h-10 object-contain" />
+          <img src={liventsLogoAlt} alt="Livents" className="h-8 object-contain" />
         </Link>
 
         <div className="flex items-center gap-2 shrink-0">
