@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2, Clock } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2, Clock, Upload, Loader2, ShieldCheck } from 'lucide-react';
 import TagInput from '@/components/TagInput';
 import liventsLogoAlt from '@/assets/livents-logo-alt.png';
 
@@ -35,15 +35,10 @@ const INDUSTRIES = [
 
 function CompleteStep({ navigate }: { navigate: (path: string) => void }) {
   const [countdown, setCountdown] = useState(5);
-
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          navigate('/dashboard');
-          return 0;
-        }
+        if (prev <= 1) { clearInterval(timer); navigate('/dashboard'); return 0; }
         return prev - 1;
       });
     }, 1000);
@@ -70,14 +65,26 @@ export default function Onboarding() {
   const [step, setStep] = useState<OnboardingStep>('payment');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [payfastLoading, setPayfastLoading] = useState(false);
   const [membership, setMembership] = useState<any>(null);
   const [pendingMember, setPendingMember] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('monthly');
+  const [settings, setSettings] = useState<any>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [uploadingProof, setUploadingProof] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [businessForm, setBusinessForm] = useState({
     business_name: '', industry: '', products_services: '',
     location: '', phone: '', website: '', bio: '',
   });
+
+  // Load admin settings for prices
+  useEffect(() => {
+    supabase.from('admin_settings').select('*').eq('id', 1).single().then(({ data }) => {
+      if (data) setSettings(data);
+    });
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
@@ -89,19 +96,19 @@ export default function Onboarding() {
   const checkMembershipStatus = async () => {
     if (!user) return;
 
-    const [membershipRes, profileRes, pendingRes] = await Promise.all([
+    const [membershipRes, profileRes, pendingRes, pendingPaymentRes, claimRes] = await Promise.all([
       supabase.from('memberships').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.from('profiles').select('*').eq('user_id', user.id).single(),
       supabase.from('pending_members').select('*').eq('email', user.email || '').eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('payments').select('*').eq('user_id', user.id).eq('status', 'pending').eq('payment_method', 'offline').order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('membership_claims').select('*').eq('user_id', user.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     setProfile(profileRes.data);
     setMembership(membershipRes.data);
     setPendingMember(pendingRes.data);
 
-    if (pendingRes.data?.plan) {
-      setSelectedPlan(pendingRes.data.plan as 'monthly' | 'annual');
-    }
+    if (pendingRes.data?.plan) setSelectedPlan(pendingRes.data.plan as 'monthly' | 'annual');
 
     if (profileRes.data) {
       setBusinessForm({
@@ -116,8 +123,27 @@ export default function Onboarding() {
     }
 
     const memberType = (pendingRes.data as any)?.member_type || searchParams.get('member_type') || 'new';
-
     const m = membershipRes.data;
+
+    // Check for active claim with temporary access
+    if (claimRes.data) {
+      const granted = claimRes.data.granted_until ? new Date(claimRes.data.granted_until) : null;
+      if (granted && granted > new Date()) {
+        // User has temporary access, let them through to business details or dashboard
+        if (profileRes.data?.onboarding_completed) { navigate('/dashboard'); return; }
+        setStep('business-details');
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Check for pending offline payment - always show pending screen
+    if (pendingPaymentRes.data) {
+      setStep('pending-confirmation');
+      setLoading(false);
+      return;
+    }
+
     if (m && m.status === 'active' && new Date(m.expires_at) >= new Date()) {
       if (profileRes.data?.onboarding_completed) { navigate('/dashboard'); return; }
       setStep('business-details');
@@ -127,7 +153,6 @@ export default function Onboarding() {
         const expiresAt = pd.expires_at || (pd.plan === 'annual'
           ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
           : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString());
-        
         await supabase.from('memberships').insert({
           user_id: user.id, plan: pd.plan, status: 'active',
           starts_at: pd.purchase_date || new Date().toISOString(), expires_at: expiresAt,
@@ -148,39 +173,44 @@ export default function Onboarding() {
     setLoading(false);
   };
 
-  // Check if user has a pending offline payment
-  useEffect(() => {
-    if (!user || loading) return;
-    const checkPendingPayment = async () => {
-      const { data } = await supabase.from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'pending')
-        .eq('payment_method', 'offline')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (data && step === 'payment') {
-        setStep('pending-confirmation');
-      }
+  const monthlyPrice = settings?.monthly_price ?? 100;
+  const annualPrice = settings?.annual_price ?? 1000;
+  const chargeFeeToClient = settings?.charge_fee_to_client ?? true;
+  const payfastMode = settings?.payfast_mode ?? 'sandbox';
+
+  const baseAmount = selectedPlan === 'annual' ? annualPrice : monthlyPrice;
+  const payfastFee = chargeFeeToClient ? Math.round(baseAmount * 0.08 * 100) / 100 : 0;
+  const payfastTotal = baseAmount + payfastFee;
+
+  const getMerchantCredentials = () => {
+    if (payfastMode === 'live') {
+      return {
+        merchantId: settings?.payfast_merchant_id_live || '',
+        merchantKey: settings?.payfast_merchant_key_live || '',
+        url: 'https://www.payfast.co.za/eng/process',
+      };
+    }
+    return {
+      merchantId: '10000100',
+      merchantKey: '46f0cd694581a',
+      url: 'https://sandbox.payfast.co.za/eng/process',
     };
-    checkPendingPayment();
-  }, [user, loading]);
+  };
 
   const handlePayment = async (method: 'payfast' | 'offline') => {
     if (!user) return;
-    setActionLoading(true);
+
+    if (method === 'payfast') {
+      setPayfastLoading(true);
+    } else {
+      setActionLoading(true);
+    }
 
     try {
       const plan = selectedPlan;
-      const baseAmount = plan === 'annual' ? 500 : 50;
 
       if (method === 'payfast') {
-        const transactionFee = Math.round(baseAmount * 0.08 * 100) / 100;
-        const totalAmount = baseAmount + transactionFee;
-
-        const merchantId = '10000100';
-        const merchantKey = '46f0cd694581a';
+        const { merchantId, merchantKey, url } = getMerchantCredentials();
         const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
 
         const payfastData: Record<string, string> = {
@@ -192,20 +222,20 @@ export default function Onboarding() {
           name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
           email_address: user.email || '',
           m_payment_id: paymentId,
-          amount: totalAmount.toFixed(2),
+          amount: payfastTotal.toFixed(2),
           item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-          item_description: `Livents ${plan} membership (incl. ${transactionFee.toFixed(2)} transaction fee)`,
+          item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
         };
 
         await supabase.from('payments').insert({
-          user_id: user.id, amount: totalAmount, transaction_fee: transactionFee,
+          user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
           net_amount: baseAmount, payment_method: 'payfast',
           payment_reference: paymentId, status: 'pending', plan,
         });
 
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = 'https://sandbox.payfast.co.za/eng/process';
+        form.action = url;
         Object.entries(payfastData).forEach(([key, value]) => {
           const input = document.createElement('input');
           input.type = 'hidden'; input.name = key; input.value = value;
@@ -216,7 +246,7 @@ export default function Onboarding() {
         return;
       }
 
-      // Offline payment
+      // Offline/EFT payment
       await supabase.from('payments').insert({
         user_id: user.id, amount: baseAmount, transaction_fee: 0,
         net_amount: baseAmount, payment_method: 'offline', status: 'pending', plan,
@@ -227,18 +257,40 @@ export default function Onboarding() {
       toast.error(err.message);
     }
     setActionLoading(false);
+    setPayfastLoading(false);
+  };
+
+  const handleProofUpload = async () => {
+    if (!user || !proofFile) return;
+    setUploadingProof(true);
+    try {
+      const ext = proofFile.name.split('.').pop();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from('proof-of-payment').upload(path, proofFile);
+      if (uploadError) throw uploadError;
+
+      // Update the pending payment with proof URL
+      const { error: updateError } = await supabase.from('payments')
+        .update({ proof_of_payment_url: path })
+        .eq('user_id', user.id)
+        .eq('status', 'pending')
+        .eq('payment_method', 'offline');
+      if (updateError) throw updateError;
+
+      toast.success('Proof of payment uploaded successfully!');
+      setProofFile(null);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setUploadingProof(false);
   };
 
   const handlePayfastFromPending = async () => {
     if (!user) return;
-    setActionLoading(true);
+    setPayfastLoading(true);
     try {
       const plan = selectedPlan;
-      const baseAmount = plan === 'annual' ? 500 : 50;
-      const transactionFee = Math.round(baseAmount * 0.08 * 100) / 100;
-      const totalAmount = baseAmount + transactionFee;
-      const merchantId = '10000100';
-      const merchantKey = '46f0cd694581a';
+      const { merchantId, merchantKey, url } = getMerchantCredentials();
       const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
 
       const payfastData: Record<string, string> = {
@@ -250,20 +302,20 @@ export default function Onboarding() {
         name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
         email_address: user.email || '',
         m_payment_id: paymentId,
-        amount: totalAmount.toFixed(2),
+        amount: payfastTotal.toFixed(2),
         item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-        item_description: `Livents ${plan} membership (incl. ${transactionFee.toFixed(2)} transaction fee)`,
+        item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
       };
 
       await supabase.from('payments').insert({
-        user_id: user.id, amount: totalAmount, transaction_fee: transactionFee,
+        user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
         net_amount: baseAmount, payment_method: 'payfast',
         payment_reference: paymentId, status: 'pending', plan,
       });
 
       const form = document.createElement('form');
       form.method = 'POST';
-      form.action = 'https://sandbox.payfast.co.za/eng/process';
+      form.action = url;
       Object.entries(payfastData).forEach(([key, value]) => {
         const input = document.createElement('input');
         input.type = 'hidden'; input.name = key; input.value = value;
@@ -274,10 +326,33 @@ export default function Onboarding() {
     } catch (err: any) {
       toast.error(err.message);
     }
+    setPayfastLoading(false);
+  };
+
+  const handleClaimMembership = async () => {
+    if (!user) return;
+    setActionLoading(true);
+    try {
+      const grantedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await supabase.from('membership_claims').insert({
+        user_id: user.id,
+        status: 'pending',
+        granted_until: grantedUntil,
+      });
+      if (error) throw error;
+
+      // Give temporary access by creating a temporary membership
+      await supabase.from('user_roles').upsert({ user_id: user.id, role: 'member' as const }, { onConflict: 'user_id,role' });
+      
+      toast.success('Your claim has been submitted. You have 5 days temporary access while admin reviews.');
+      setStep('business-details');
+    } catch (err: any) {
+      toast.error(err.message);
+    }
     setActionLoading(false);
   };
 
-  // Handle PayFast return
+  // Handle PayFast return - auto-mark as paid
   useEffect(() => {
     const paymentStatus = searchParams.get('payment');
     const plan = searchParams.get('plan');
@@ -308,7 +383,8 @@ export default function Onboarding() {
       if (pendingMember) {
         await supabase.from('pending_members').update({ status: 'claimed' }).eq('id', pendingMember.id);
       }
-      await supabase.from('payments').update({ status: 'completed' }).eq('user_id', user.id).eq('status', 'pending');
+      // Mark ALL pending PayFast payments as completed
+      await supabase.from('payments').update({ status: 'completed' }).eq('user_id', user.id).eq('status', 'pending').eq('payment_method', 'payfast');
 
       toast.success('Payment confirmed! Your membership is now active.');
       setStep('business-details');
@@ -323,7 +399,6 @@ export default function Onboarding() {
     setActionLoading(true);
     try {
       const { data: existingProfile } = await supabase.from('profiles').select('id').eq('user_id', user.id).maybeSingle();
-
       if (existingProfile) {
         const { error } = await supabase.from('profiles').update({ ...businessForm, onboarding_completed: true }).eq('user_id', user.id);
         if (error) throw error;
@@ -366,9 +441,7 @@ export default function Onboarding() {
   }
 
   const isExpired = membership && (membership.status === 'expired' || new Date(membership.expires_at) < new Date());
-  const baseAmount = selectedPlan === 'annual' ? 500 : 50;
-  const payfastFee = Math.round(baseAmount * 0.08 * 100) / 100;
-
+  const savingsPercent = annualPrice < monthlyPrice * 12 ? Math.round((1 - annualPrice / (monthlyPrice * 12)) * 100) : 0;
   const stepIndex = step === 'payment' ? 0 : step === 'pending-confirmation' ? 0 : step === 'business-details' ? 1 : 2;
 
   return (
@@ -377,7 +450,7 @@ export default function Onboarding() {
         <div className="text-center mb-8">
           <img src={liventsLogoAlt} alt="Livents" className="h-12 mx-auto mb-4" />
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
-            {step === 'payment' ? (isExpired ? 'Renew Your Membership' : 'Activate Your Membership') : 
+            {step === 'payment' ? (isExpired ? 'Renew Your Membership' : 'Activate Your Membership') :
              step === 'pending-confirmation' ? 'Payment Pending' :
              step === 'business-details' ? 'Complete Your Profile' : 'Welcome Aboard!'}
           </h1>
@@ -420,14 +493,14 @@ export default function Onboarding() {
             <div className="grid grid-cols-2 gap-3">
               <button type="button" onClick={() => setSelectedPlan('monthly')}
                 className={`rounded-[5px] border-2 p-4 text-center transition-all ${selectedPlan === 'monthly' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
-                <p className="text-2xl font-bold text-foreground">R50</p>
+                <p className="text-2xl font-bold text-foreground">R{monthlyPrice}</p>
                 <p className="text-sm text-muted-foreground">per month</p>
                 {selectedPlan === 'monthly' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
               </button>
               <button type="button" onClick={() => setSelectedPlan('annual')}
                 className={`rounded-[5px] border-2 p-4 text-center transition-all relative ${selectedPlan === 'annual' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
-                <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SAVE 17%</span>
-                <p className="text-2xl font-bold text-foreground">R500</p>
+                {savingsPercent > 0 && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SAVE {savingsPercent}%</span>}
+                <p className="text-2xl font-bold text-foreground">R{annualPrice}</p>
                 <p className="text-sm text-muted-foreground">per year</p>
                 {selectedPlan === 'annual' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
               </button>
@@ -440,24 +513,26 @@ export default function Onboarding() {
               </h2>
 
               <div className="space-y-3">
-                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} disabled={actionLoading}>
-                  <CreditCard className="w-4 h-4" /> Pay with PayFast — R{(baseAmount + payfastFee).toFixed(2)}
+                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} disabled={payfastLoading || actionLoading}>
+                  {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
+                    <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
                 </Button>
-                <p className="text-center text-[11px] text-muted-foreground">
-                  PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
-                </p>
+                {chargeFeeToClient && payfastFee > 0 && (
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                  </p>
+                )}
 
                 <div className="relative my-4">
                   <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
                   <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
                 </div>
 
-                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} disabled={actionLoading}>
+                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} disabled={actionLoading || payfastLoading}>
                   Pay via EFT — R{baseAmount.toFixed(2)}
                 </Button>
               </div>
 
-              {/* EFT Banking Details */}
               <div className="mt-6 p-4 rounded-[5px] bg-muted/50 border border-border">
                 <p className="text-xs font-bold text-foreground mb-2">EFT Banking Details</p>
                 <div className="space-y-1 text-xs text-muted-foreground">
@@ -469,6 +544,19 @@ export default function Onboarding() {
                 <p className="text-[10px] text-muted-foreground mt-2">After EFT payment, the admin will verify and activate your membership.</p>
               </div>
             </div>
+
+            {/* I Have An Active Membership Button */}
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+              <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">already a member?</span></div>
+            </div>
+
+            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} disabled={actionLoading}>
+              <ShieldCheck className="w-4 h-4" /> I Have An Active Membership
+            </Button>
+            <p className="text-center text-[10px] text-muted-foreground">
+              Claim your existing membership. You'll get 5 days temporary access while admin verifies.
+            </p>
           </div>
         )}
 
@@ -481,7 +569,7 @@ export default function Onboarding() {
             <div>
               <h2 className="text-xl font-bold mb-2">Payment Pending Confirmation</h2>
               <p className="text-muted-foreground text-sm">
-                Your EFT payment has been recorded and is awaiting admin verification. 
+                Your EFT payment has been recorded and is awaiting admin verification.
                 You will receive a notification once your membership is activated.
               </p>
             </div>
@@ -497,6 +585,30 @@ export default function Onboarding() {
               <p className="text-[10px] text-muted-foreground mt-2">Please ensure you use the reference above when making your payment.</p>
             </div>
 
+            {/* Proof of Payment Upload */}
+            <div className="p-4 rounded-[5px] bg-blue-50 border border-blue-200 text-left space-y-3">
+              <p className="text-sm font-bold text-blue-800 flex items-center gap-2"><Upload className="w-4 h-4" /> Upload Proof of Payment</p>
+              <p className="text-xs text-blue-600">Upload a screenshot or PDF of your EFT confirmation to speed up verification.</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,.pdf"
+                className="hidden"
+                onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="flex-1 gap-1 text-xs" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="w-3 h-3" /> {proofFile ? proofFile.name : 'Choose File'}
+                </Button>
+                {proofFile && (
+                  <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} disabled={uploadingProof}>
+                    {uploadingProof ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                    Upload
+                  </Button>
+                )}
+              </div>
+            </div>
+
             <div className="relative">
               <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
               <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or pay instantly</span></div>
@@ -504,12 +616,15 @@ export default function Onboarding() {
 
             <div>
               <p className="text-sm text-muted-foreground mb-3">Don't want to wait? Pay instantly with PayFast.</p>
-              <Button className="w-full gap-2" onClick={handlePayfastFromPending} disabled={actionLoading}>
-                <CreditCard className="w-4 h-4" /> Pay with PayFast — R{(baseAmount + payfastFee).toFixed(2)}
+              <Button className="w-full gap-2" onClick={handlePayfastFromPending} disabled={payfastLoading}>
+                {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
+                  <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
               </Button>
-              <p className="text-center text-[11px] text-muted-foreground mt-2">
-                PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
-              </p>
+              {chargeFeeToClient && payfastFee > 0 && (
+                <p className="text-center text-[11px] text-muted-foreground mt-2">
+                  PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                </p>
+              )}
             </div>
           </div>
         )}
