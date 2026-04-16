@@ -17,28 +17,40 @@ export type Database = {
       admin_settings: {
         Row: {
           annual_price: number
+          charge_fee_to_client: boolean
           id: number
           monthly_price: number
           org_email: string
           org_name: string
+          payfast_merchant_id_live: string | null
+          payfast_merchant_key_live: string | null
+          payfast_mode: string
           send_invite_emails: boolean
           updated_at: string
         }
         Insert: {
           annual_price?: number
+          charge_fee_to_client?: boolean
           id?: number
           monthly_price?: number
           org_email?: string
           org_name?: string
+          payfast_merchant_id_live?: string | null
+          payfast_merchant_key_live?: string | null
+          payfast_mode?: string
           send_invite_emails?: boolean
           updated_at?: string
         }
         Update: {
           annual_price?: number
+          charge_fee_to_client?: boolean
           id?: number
           monthly_price?: number
           org_email?: string
           org_name?: string
+          payfast_merchant_id_live?: string | null
+          payfast_merchant_key_live?: string | null
+          payfast_mode?: string
           send_invite_emails?: boolean
           updated_at?: string
         }
@@ -221,6 +233,42 @@ export type Database = {
         }
         Relationships: []
       }
+      membership_claims: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          granted_until: string | null
+          id: string
+          membership_expires_at: string | null
+          membership_starts_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          granted_until?: string | null
+          id?: string
+          membership_expires_at?: string | null
+          membership_starts_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          granted_until?: string | null
+          id?: string
+          membership_expires_at?: string | null
+          membership_starts_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memberships: {
         Row: {
           created_at: string
@@ -298,6 +346,7 @@ export type Database = {
           payment_method: string
           payment_reference: string | null
           plan: string
+          proof_of_payment_url: string | null
           status: string
           transaction_fee: number | null
           user_id: string
@@ -312,6 +361,7 @@ export type Database = {
           payment_method?: string
           payment_reference?: string | null
           plan: string
+          proof_of_payment_url?: string | null
           status?: string
           transaction_fee?: number | null
           user_id: string
@@ -326,6 +376,7 @@ export type Database = {
           payment_method?: string
           payment_reference?: string | null
           plan?: string
+          proof_of_payment_url?: string | null
           status?: string
           transaction_fee?: number | null
           user_id?: string

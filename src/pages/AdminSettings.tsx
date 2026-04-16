@@ -1,25 +1,72 @@
-import { useState } from 'react';
-import { Settings, Shield, Bell, Globe, Database, Mail } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
+import { Settings, Shield, Bell, Globe, Database, Mail, CreditCard, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
 export default function AdminSettings() {
+  const { isAdmin, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
   const [orgName, setOrgName] = useState('Livents');
-  const [orgEmail, setOrgEmail] = useState('ceo@womeninbusiness.org.za');
-  const [orgPhone, setOrgPhone] = useState('074 589 2042');
-  const [monthlyPrice, setMonthlyPrice] = useState('50');
-  const [annualPrice, setAnnualPrice] = useState('500');
+  const [orgEmail, setOrgEmail] = useState('');
+  const [monthlyPrice, setMonthlyPrice] = useState('100');
+  const [annualPrice, setAnnualPrice] = useState('1000');
+  const [chargeFeeToClient, setChargeFeeToClient] = useState(true);
+  const [payfastMode, setPayfastMode] = useState('sandbox');
+  const [merchantIdLive, setMerchantIdLive] = useState('');
+  const [merchantKeyLive, setMerchantKeyLive] = useState('');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [autoExpire, setAutoExpire] = useState(true);
 
-  const handleSave = () => {
-    toast.success('Settings saved successfully');
+  useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase.from('admin_settings').select('*').eq('id', 1).single().then(({ data }) => {
+      if (data) {
+        setOrgName(data.org_name);
+        setOrgEmail(data.org_email);
+        setMonthlyPrice(String(data.monthly_price));
+        setAnnualPrice(String(data.annual_price));
+        setChargeFeeToClient((data as any).charge_fee_to_client ?? true);
+        setPayfastMode((data as any).payfast_mode ?? 'sandbox');
+        setMerchantIdLive((data as any).payfast_merchant_id_live ?? '');
+        setMerchantKeyLive((data as any).payfast_merchant_key_live ?? '');
+      }
+      setLoading(false);
+    });
+  }, [isAdmin]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('admin_settings').update({
+      org_name: orgName,
+      org_email: orgEmail,
+      monthly_price: Number(monthlyPrice),
+      annual_price: Number(annualPrice),
+      charge_fee_to_client: chargeFeeToClient,
+      payfast_mode: payfastMode,
+      payfast_merchant_id_live: merchantIdLive,
+      payfast_merchant_key_live: merchantKeyLive,
+    } as any).eq('id', 1);
+
+    if (error) toast.error('Failed to save settings');
+    else toast.success('Settings saved successfully');
+    setSaving(false);
   };
+
+  if (authLoading || loading) return <div className="min-h-screen flex items-center justify-center"><p>Loading...</p></div>;
 
   return (
     <div className="py-8">
@@ -45,10 +92,6 @@ export default function AdminSettings() {
                 <Label>Contact Email</Label>
                 <Input type="email" value={orgEmail} onChange={e => setOrgEmail(e.target.value)} />
               </div>
-              <div>
-                <Label>Contact Phone</Label>
-                <Input value={orgPhone} onChange={e => setOrgPhone(e.target.value)} />
-              </div>
             </div>
           </div>
 
@@ -67,6 +110,50 @@ export default function AdminSettings() {
                 <Label>Annual Plan (ZAR)</Label>
                 <Input type="number" value={annualPrice} onChange={e => setAnnualPrice(e.target.value)} />
               </div>
+            </div>
+          </div>
+
+          {/* PayFast Configuration */}
+          <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-5">
+              <CreditCard className="w-5 h-5 text-primary" />
+              <h2 className="text-base font-bold">Payment Gateway (PayFast)</h2>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Charge Transaction Fee to Client</p>
+                  <p className="text-xs text-muted-foreground">If enabled, an 8% PayFast fee is added to the client's total. If disabled, you absorb the fee.</p>
+                </div>
+                <Switch checked={chargeFeeToClient} onCheckedChange={setChargeFeeToClient} />
+              </div>
+              <Separator />
+              <div>
+                <Label>PayFast Mode</Label>
+                <Select value={payfastMode} onValueChange={setPayfastMode}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                    <SelectItem value="live">Live (Production)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {payfastMode === 'sandbox' ? '⚠️ Currently in sandbox mode — no real payments will be processed.' : '✅ Live mode — real payments will be processed.'}
+                </p>
+              </div>
+              {payfastMode === 'live' && (
+                <div className="grid gap-4 sm:grid-cols-2 p-4 rounded-[5px] bg-amber-50 border border-amber-200">
+                  <div>
+                    <Label>Live Merchant ID</Label>
+                    <Input value={merchantIdLive} onChange={e => setMerchantIdLive(e.target.value)} placeholder="Your PayFast Merchant ID" />
+                  </div>
+                  <div>
+                    <Label>Live Merchant Key</Label>
+                    <Input value={merchantKeyLive} onChange={e => setMerchantKeyLive(e.target.value)} placeholder="Your PayFast Merchant Key" />
+                  </div>
+                  <p className="sm:col-span-2 text-xs text-amber-700">⚠️ Ensure these are your live PayFast credentials. Incorrect values will cause payment failures.</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -95,19 +182,6 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          {/* Email Integration */}
-          <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-5">
-              <Mail className="w-5 h-5 text-primary" />
-              <h2 className="text-base font-bold">Email Integration</h2>
-            </div>
-            <div className="p-4 rounded-[5px] bg-background border border-border">
-              <p className="text-sm font-medium text-foreground mb-1">Resend Integration</p>
-              <p className="text-xs text-muted-foreground">Not yet configured. Once set up, member invitations and notifications will be sent automatically via Resend.</p>
-              <Badge className="mt-2 bg-amber-100 text-amber-700 border-amber-200 text-[10px]">Pending Setup</Badge>
-            </div>
-          </div>
-
           {/* System */}
           <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-5">
@@ -130,13 +204,11 @@ export default function AdminSettings() {
             </div>
           </div>
 
-          <Button className="w-full sm:w-auto" onClick={handleSave}>Save Settings</Button>
+          <Button className="w-full sm:w-auto gap-2" onClick={handleSave} disabled={saving}>
+            {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</> : 'Save Settings'}
+          </Button>
         </div>
       </div>
     </div>
   );
-}
-
-function Badge({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <span className={`inline-block px-2 py-0.5 rounded-full border text-xs font-medium ${className}`}>{children}</span>;
 }

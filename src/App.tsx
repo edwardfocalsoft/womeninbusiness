@@ -28,6 +28,7 @@ import AdminResources from "./pages/AdminResources";
 import AdminUsers from "./pages/AdminUsers";
 import AdminSettings from "./pages/AdminSettings";
 import AdminPayments from "./pages/AdminPayments";
+import AdminClaims from "./pages/AdminClaims";
 import Onboarding from "./pages/Onboarding";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/settings" element={<AdminSettings />} />
               <Route path="/admin/payments" element={<AdminPayments />} />
+              <Route path="/admin/claims" element={<AdminClaims />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AppLayout>
