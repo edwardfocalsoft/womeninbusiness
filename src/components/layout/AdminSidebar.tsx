@@ -1,5 +1,6 @@
 import {
   Users, BarChart3, Calendar, Megaphone, Shield, Settings, UserCog, CreditCard,
+  LayoutDashboard, BookOpen, ShieldCheck,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
@@ -12,6 +13,7 @@ const adminItems = [
   { title: 'Dashboard', url: '/admin/members', icon: LayoutDashboard },
   { title: 'Payments', url: '/admin/payments', icon: CreditCard },
   { title: 'Members', url: '/admin/members', icon: Users },
+  { title: 'Claims', url: '/admin/claims', icon: ShieldCheck },
   { title: 'Events', url: '/admin/events', icon: Calendar },
   { title: 'Announcements', url: '/admin/announcements', icon: Megaphone },
   { title: 'Resources', url: '/admin/resources', icon: BookOpen },
@@ -21,8 +23,6 @@ const adminItems = [
 const systemItems = [
   { title: 'Admin Settings', url: '/admin/settings', icon: Settings },
 ];
-
-import { LayoutDashboard, BookOpen } from 'lucide-react';
 
 export default function AdminSidebar() {
   const { state } = useSidebar();
