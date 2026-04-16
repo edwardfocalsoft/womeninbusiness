@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, AlertCircle, RefreshCw, Download, FileText, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
+import { CreditCard, AlertCircle, RefreshCw, Download, FileText, ChevronLeft, ChevronRight, Bell, Clock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, differenceInHours, differenceInMinutes } from 'date-fns';
 
 const RECEIPTS_PER_PAGE = 5;
 
@@ -20,9 +20,11 @@ export default function Dashboard() {
 
   const [profile, setProfile] = useState<any>(null);
   const [membership, setMembership] = useState<any>(null);
+  const [claim, setClaim] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [receiptPage, setReceiptPage] = useState(1);
+  const [countdownText, setCountdownText] = useState('');
 
   useEffect(() => {
     if (!user) { navigate('/auth'); return; }
@@ -31,43 +33,70 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     if (!user) return;
-    const [profileRes, membershipRes] = await Promise.all([
+    const [profileRes, membershipRes, claimRes] = await Promise.all([
       supabase.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
       supabase.from('memberships').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('membership_claims').select('*').eq('user_id', user.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const p = profileRes.data;
     const m = membershipRes.data;
-    if (!p?.onboarding_completed || !m || m.status !== 'active' || new Date(m.expires_at) < new Date()) {
+    const c = claimRes.data;
+
+    // Check if user has a declined claim and no active membership - send to onboarding
+    if (!m || m.status !== 'active' || new Date(m.expires_at) < new Date()) {
+      // Check for temporary access via claim
+      if (c?.granted_until && new Date(c.granted_until) > new Date()) {
+        // Temporary access active - allow dashboard
+        setClaim(c);
+      } else if (!p?.onboarding_completed) {
+        navigate('/onboarding', { replace: true });
+        return;
+      } else {
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+    }
+
+    if (m && m.status === 'active' && new Date(m.expires_at) >= new Date() && !p?.onboarding_completed) {
       navigate('/onboarding', { replace: true });
       return;
     }
 
     setProfile(p);
     setMembership(m);
+    setClaim(c);
     setLoading(false);
   };
 
+  // Countdown timer for temporary claim access
+  useEffect(() => {
+    if (!claim?.granted_until) return;
+    const updateCountdown = () => {
+      const until = new Date(claim.granted_until);
+      const now = new Date();
+      if (until <= now) {
+        setCountdownText('Expired');
+        navigate('/onboarding', { replace: true });
+        return;
+      }
+      const days = differenceInDays(until, now);
+      const hours = differenceInHours(until, now) % 24;
+      const mins = differenceInMinutes(until, now) % 60;
+      setCountdownText(`${days}d ${hours}h ${mins}m remaining`);
+    };
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 60000);
+    return () => clearInterval(interval);
+  }, [claim]);
+
   const handleRenew = async () => {
     if (!user || !membership) return;
-    setActionLoading(true);
-    try {
-      const plan = membership.plan as 'monthly' | 'annual';
-      const expiresAt = plan === 'annual'
-        ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase.from('memberships').update({
-        status: 'active', starts_at: new Date().toISOString(), expires_at: expiresAt,
-      }).eq('user_id', user.id);
-      if (error) throw error;
-      toast.success('Membership renewed!');
-      fetchData();
-    } catch (err: any) { toast.error(err.message); }
-    setActionLoading(false);
+    navigate('/onboarding');
   };
 
   const generateReceipt = (plan: string, date: string) => {
-    const amount = plan === 'annual' ? 'R500.00' : 'R50.00';
+    const amount = plan === 'annual' ? 'R1000.00' : 'R100.00';
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<html><head><title>Payment Receipt</title><style>
@@ -129,6 +158,7 @@ export default function Dashboard() {
   const isActive = membership?.status === 'active' && !isExpired;
   const daysUntilExpiry = membership && isActive ? differenceInDays(new Date(membership.expires_at), new Date()) : null;
   const isExpiringSoon = daysUntilExpiry !== null && daysUntilExpiry <= 10 && daysUntilExpiry >= 0;
+  const hasTemporaryAccess = claim && claim.status === 'pending' && claim.granted_until && new Date(claim.granted_until) > new Date();
 
   const receipts: { id: string; plan: string; date: string; amount: string }[] = [];
   if (membership) {
@@ -139,10 +169,8 @@ export default function Dashboard() {
     let idx = 0;
     while (d <= now && idx < 50) {
       receipts.push({
-        id: `rcpt-${idx}`,
-        plan: membership.plan,
-        date: d.toISOString(),
-        amount: isAnnual ? 'R500.00' : 'R50.00',
+        id: `rcpt-${idx}`, plan: membership.plan, date: d.toISOString(),
+        amount: isAnnual ? 'R1000.00' : 'R100.00',
       });
       if (isAnnual) d.setFullYear(d.getFullYear() + 1);
       else d.setMonth(d.getMonth() + 1);
@@ -155,18 +183,27 @@ export default function Dashboard() {
 
   return (
     <div className="py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+      {/* Temporary Access Countdown Banner */}
+      {hasTemporaryAccess && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white py-2 px-4 text-center text-sm font-semibold flex items-center justify-center gap-2">
+          <Clock className="w-4 h-4" />
+          Temporary Access — {countdownText} — Admin is reviewing your membership claim
+        </div>
+      )}
+
+      <div className={`max-w-6xl mx-auto px-4 sm:px-6 ${hasTemporaryAccess ? 'mt-10' : ''}`}>
         <div className="mb-8">
           <h1 className="text-2xl sm:text-3xl font-bold mb-1">Dashboard</h1>
           <p className="text-muted-foreground text-sm">Welcome{profile?.full_name ? `, ${profile.full_name}` : ''}.</p>
         </div>
 
         <div className="flex flex-col gap-6">
-          {/* Top Row: Full Width Membership Status */}
+          {/* Membership Status */}
           <div className="rounded-[5px] border border-border bg-card p-5 sm:p-8 shadow-sm w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg sm:text-xl font-bold">Membership Status</h2>
-              {isActive && <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>}
+              {hasTemporaryAccess && <Badge className="bg-amber-100 text-amber-700 border-amber-200">Pending Verification</Badge>}
+              {isActive && !hasTemporaryAccess && <Badge className="bg-green-100 text-green-700 border-green-200">Active</Badge>}
               {isExpired && <Badge className="bg-amber-100 text-amber-700 border-amber-200">Expired</Badge>}
             </div>
 
@@ -203,11 +240,16 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+
+            {hasTemporaryAccess && !membership && (
+              <div className="p-4 rounded-[5px] bg-amber-50 border border-amber-200">
+                <p className="text-sm text-amber-800">Your membership claim is being reviewed by admin. You have temporary access while they verify.</p>
+              </div>
+            )}
           </div>
 
-          {/* Bottom Row: Card and Receipts side by side */}
+          {/* Card and Receipts side by side */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-            {/* Membership Card */}
             {membership && (
               <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm flex flex-col justify-between">
                 <div>
@@ -238,7 +280,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* Receipts */}
             <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
               <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" /> Receipts
@@ -260,7 +301,6 @@ export default function Dashboard() {
                       </Button>
                     </div>
                   ))}
-                  
                   {totalReceiptPages > 1 && (
                     <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
                       <p className="text-xs text-muted-foreground">Page {receiptPage} of {totalReceiptPages}</p>
