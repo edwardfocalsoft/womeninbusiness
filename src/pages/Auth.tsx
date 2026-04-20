@@ -117,7 +117,8 @@ export default function Auth() {
         });
 
         if (error) throw error;
-        setSignUpSuccess(true);
+        // Auto-confirm is enabled — user is signed in immediately. Skip the
+        // "check your email" screen and let the post-auth effect redirect.
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
