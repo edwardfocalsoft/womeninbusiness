@@ -322,7 +322,7 @@ export default function Onboarding() {
         merchant_id: merchantId, merchant_key: merchantKey,
         return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
         cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-        notify_url: `${window.location.origin}/api/payfast-webhook`,
+        notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
         name_first: profile?.full_name?.split(' ')[0] || '',
         name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
         email_address: user.email || '',
