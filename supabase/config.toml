@@ -9,3 +9,5 @@ project_id = "mywbsqmluljyyfvpfbqv"
     verify_jwt = false
   [functions.send-transactional-email]
     verify_jwt = false
+  [functions.payfast-webhook]
+    verify_jwt = false
