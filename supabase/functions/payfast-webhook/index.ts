@@ -1,7 +1,7 @@
 // PayFast ITN (Instant Transaction Notification) webhook
 // Verifies signature, validates with PayFast, and marks payments as paid + activates membership.
 import { createClient } from "npm:@supabase/supabase-js@2.45.0";
-import { Md5 } from "https://deno.land/std@0.224.0/hash/md5.ts";
+import md5 from "npm:blueimp-md5@2.19.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 function md5Hex(input: string): string {
-  return new Md5().update(input).toString();
+  return md5(input);
 }
 
 function pfEncode(value: string): string {
