@@ -644,9 +644,8 @@ export default function Onboarding() {
                   <Upload className="w-3 h-3" /> {proofFile ? proofFile.name : 'Choose File'}
                 </Button>
                 {proofFile && (
-                  <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} disabled={uploadingProof}>
-                    {uploadingProof ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                    Upload
+                  <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} loading={uploadingProof} loadingText="Uploading...">
+                    <CheckCircle2 className="w-3 h-3" /> Upload
                   </Button>
                 )}
               </div>
