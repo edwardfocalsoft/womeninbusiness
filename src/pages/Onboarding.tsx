@@ -227,11 +227,25 @@ export default function Onboarding() {
           item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
         };
 
-        await supabase.from('payments').insert({
-          user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-          net_amount: baseAmount, payment_method: 'payfast',
-          payment_reference: paymentId, status: 'pending', plan,
-        });
+        // Reuse any existing pending payment (e.g. from prior EFT selection)
+        // instead of creating duplicates.
+        const { data: existingPending } = await supabase.from('payments')
+          .select('id').eq('user_id', user.id).eq('status', 'pending')
+          .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+        if (existingPending) {
+          await supabase.from('payments').update({
+            amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
+            net_amount: baseAmount, payment_method: 'payfast',
+            payment_reference: paymentId, plan,
+          }).eq('id', existingPending.id);
+        } else {
+          await supabase.from('payments').insert({
+            user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
+            net_amount: baseAmount, payment_method: 'payfast',
+            payment_reference: paymentId, status: 'pending', plan,
+          });
+        }
 
         const form = document.createElement('form');
         form.method = 'POST';
@@ -246,11 +260,22 @@ export default function Onboarding() {
         return;
       }
 
-      // Offline/EFT payment
-      await supabase.from('payments').insert({
-        user_id: user.id, amount: baseAmount, transaction_fee: 0,
-        net_amount: baseAmount, payment_method: 'offline', status: 'pending', plan,
-      });
+      // Offline/EFT payment — reuse existing pending row if present
+      const { data: existingPending } = await supabase.from('payments')
+        .select('id').eq('user_id', user.id).eq('status', 'pending')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+      if (existingPending) {
+        await supabase.from('payments').update({
+          amount: baseAmount, transaction_fee: 0, net_amount: baseAmount,
+          payment_method: 'offline', plan,
+        }).eq('id', existingPending.id);
+      } else {
+        await supabase.from('payments').insert({
+          user_id: user.id, amount: baseAmount, transaction_fee: 0,
+          net_amount: baseAmount, payment_method: 'offline', status: 'pending', plan,
+        });
+      }
 
       setStep('pending-confirmation');
     } catch (err: any) {
@@ -307,11 +332,24 @@ export default function Onboarding() {
         item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
       };
 
-      await supabase.from('payments').insert({
-        user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-        net_amount: baseAmount, payment_method: 'payfast',
-        payment_reference: paymentId, status: 'pending', plan,
-      });
+      // Reuse the existing pending EFT payment row instead of duplicating
+      const { data: existingPending } = await supabase.from('payments')
+        .select('id').eq('user_id', user.id).eq('status', 'pending')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+      if (existingPending) {
+        await supabase.from('payments').update({
+          amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
+          net_amount: baseAmount, payment_method: 'payfast',
+          payment_reference: paymentId, plan,
+        }).eq('id', existingPending.id);
+      } else {
+        await supabase.from('payments').insert({
+          user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
+          net_amount: baseAmount, payment_method: 'payfast',
+          payment_reference: paymentId, status: 'pending', plan,
+        });
+      }
 
       const form = document.createElement('form');
       form.method = 'POST';
@@ -398,14 +436,20 @@ export default function Onboarding() {
     if (!user) return;
     setActionLoading(true);
     try {
+      // Auto-prepend https:// when user enters a website without a scheme
+      const normalizedForm = { ...businessForm };
+      if (normalizedForm.website && !/^https?:\/\//i.test(normalizedForm.website.trim())) {
+        normalizedForm.website = `https://${normalizedForm.website.trim()}`;
+      }
+
       const { data: existingProfile } = await supabase.from('profiles').select('id').eq('user_id', user.id).maybeSingle();
       if (existingProfile) {
-        const { error } = await supabase.from('profiles').update({ ...businessForm, onboarding_completed: true }).eq('user_id', user.id);
+        const { error } = await supabase.from('profiles').update({ ...normalizedForm, onboarding_completed: true }).eq('user_id', user.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('profiles').insert({
           user_id: user.id, full_name: profile?.full_name || user.user_metadata?.full_name || '',
-          ...businessForm, onboarding_completed: true,
+          ...normalizedForm, onboarding_completed: true,
         });
         if (error) throw error;
       }
