@@ -659,9 +659,8 @@ export default function Onboarding() {
 
             <div>
               <p className="text-sm text-muted-foreground mb-3">Don't want to wait? Pay instantly with PayFast.</p>
-              <Button className="w-full gap-2" onClick={handlePayfastFromPending} disabled={payfastLoading}>
-                {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
-                  <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
+              <Button className="w-full gap-2" onClick={handlePayfastFromPending} loading={payfastLoading} loadingText="Redirecting to PayFast...">
+                <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
               </Button>
               {chargeFeeToClient && payfastFee > 0 && (
                 <p className="text-center text-[11px] text-muted-foreground mt-2">
