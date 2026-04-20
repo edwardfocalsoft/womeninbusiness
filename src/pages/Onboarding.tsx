@@ -715,8 +715,8 @@ export default function Onboarding() {
               <Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." />
             </div>
 
-            <Button className="w-full gap-2 font-semibold" onClick={handleSaveBusinessDetails} disabled={actionLoading || !businessForm.business_name || !businessForm.industry || !businessForm.products_services}>
-              {actionLoading ? 'Saving...' : 'Continue'} <ArrowRight className="w-4 h-4" />
+            <Button className="w-full gap-2 font-semibold" onClick={handleSaveBusinessDetails} loading={actionLoading} loadingText="Saving..." disabled={!businessForm.business_name || !businessForm.industry || !businessForm.products_services}>
+              Continue <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         )}
