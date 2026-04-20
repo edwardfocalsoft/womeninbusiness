@@ -557,9 +557,8 @@ export default function Onboarding() {
               </h2>
 
               <div className="space-y-3">
-                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} disabled={payfastLoading || actionLoading}>
-                  {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
-                    <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
+                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
+                  <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
                 </Button>
                 {chargeFeeToClient && payfastFee > 0 && (
                   <p className="text-center text-[11px] text-muted-foreground">
@@ -572,7 +571,7 @@ export default function Onboarding() {
                   <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
                 </div>
 
-                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} disabled={actionLoading || payfastLoading}>
+                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} loading={actionLoading} loadingText="Saving..." disabled={payfastLoading}>
                   Pay via EFT — R{baseAmount.toFixed(2)}
                 </Button>
               </div>
