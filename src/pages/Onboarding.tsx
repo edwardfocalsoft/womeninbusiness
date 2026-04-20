@@ -217,7 +217,7 @@ export default function Onboarding() {
           merchant_id: merchantId, merchant_key: merchantKey,
           return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
           cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-          notify_url: `${window.location.origin}/api/payfast-webhook`,
+          notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
           name_first: profile?.full_name?.split(' ')[0] || '',
           name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
           email_address: user.email || '',
@@ -322,7 +322,7 @@ export default function Onboarding() {
         merchant_id: merchantId, merchant_key: merchantKey,
         return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
         cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-        notify_url: `${window.location.origin}/api/payfast-webhook`,
+        notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
         name_first: profile?.full_name?.split(' ')[0] || '',
         name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
         email_address: user.email || '',
@@ -557,9 +557,8 @@ export default function Onboarding() {
               </h2>
 
               <div className="space-y-3">
-                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} disabled={payfastLoading || actionLoading}>
-                  {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
-                    <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
+                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
+                  <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
                 </Button>
                 {chargeFeeToClient && payfastFee > 0 && (
                   <p className="text-center text-[11px] text-muted-foreground">
@@ -572,7 +571,7 @@ export default function Onboarding() {
                   <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
                 </div>
 
-                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} disabled={actionLoading || payfastLoading}>
+                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} loading={actionLoading} loadingText="Saving..." disabled={payfastLoading}>
                   Pay via EFT — R{baseAmount.toFixed(2)}
                 </Button>
               </div>
@@ -595,7 +594,7 @@ export default function Onboarding() {
               <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">already a member?</span></div>
             </div>
 
-            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} disabled={actionLoading}>
+            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} loading={actionLoading} loadingText="Submitting claim...">
               <ShieldCheck className="w-4 h-4" /> I Have An Active Membership
             </Button>
             <p className="text-center text-[10px] text-muted-foreground">
@@ -645,9 +644,8 @@ export default function Onboarding() {
                   <Upload className="w-3 h-3" /> {proofFile ? proofFile.name : 'Choose File'}
                 </Button>
                 {proofFile && (
-                  <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} disabled={uploadingProof}>
-                    {uploadingProof ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                    Upload
+                  <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} loading={uploadingProof} loadingText="Uploading...">
+                    <CheckCircle2 className="w-3 h-3" /> Upload
                   </Button>
                 )}
               </div>
@@ -660,9 +658,8 @@ export default function Onboarding() {
 
             <div>
               <p className="text-sm text-muted-foreground mb-3">Don't want to wait? Pay instantly with PayFast.</p>
-              <Button className="w-full gap-2" onClick={handlePayfastFromPending} disabled={payfastLoading}>
-                {payfastLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</> :
-                  <><CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}</>}
+              <Button className="w-full gap-2" onClick={handlePayfastFromPending} loading={payfastLoading} loadingText="Redirecting to PayFast...">
+                <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
               </Button>
               {chargeFeeToClient && payfastFee > 0 && (
                 <p className="text-center text-[11px] text-muted-foreground mt-2">
@@ -718,8 +715,8 @@ export default function Onboarding() {
               <Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." />
             </div>
 
-            <Button className="w-full gap-2 font-semibold" onClick={handleSaveBusinessDetails} disabled={actionLoading || !businessForm.business_name || !businessForm.industry || !businessForm.products_services}>
-              {actionLoading ? 'Saving...' : 'Continue'} <ArrowRight className="w-4 h-4" />
+            <Button className="w-full gap-2 font-semibold" onClick={handleSaveBusinessDetails} loading={actionLoading} loadingText="Saving..." disabled={!businessForm.business_name || !businessForm.industry || !businessForm.products_services}>
+              Continue <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         )}

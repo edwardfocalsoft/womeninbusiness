@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
+import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -34,12 +35,25 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  loading?: boolean;
+  loadingText?: string;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, loadingText, disabled, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />;
+    const isDisabled = disabled || loading;
+    // When `asChild` is used the child must be a single React element — wrapping with a spinner
+    // would break Slot. In that case we fall back to rendering children as-is but still forward disabled.
+    if (asChild) {
+      return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>{children}</Comp>;
+    }
+    return (
+      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} disabled={isDisabled} aria-busy={loading} {...props}>
+        {loading && <Loader2 className="animate-spin" />}
+        {loading && loadingText ? loadingText : children}
+      </Comp>
+    );
   },
 );
 Button.displayName = "Button";
