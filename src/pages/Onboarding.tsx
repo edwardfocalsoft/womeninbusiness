@@ -594,7 +594,7 @@ export default function Onboarding() {
               <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">already a member?</span></div>
             </div>
 
-            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} disabled={actionLoading}>
+            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} loading={actionLoading} loadingText="Submitting claim...">
               <ShieldCheck className="w-4 h-4" /> I Have An Active Membership
             </Button>
             <p className="text-center text-[10px] text-muted-foreground">
