@@ -4,12 +4,23 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import MemberSidebar from './MemberSidebar';
 import AdminSidebar from './AdminSidebar';
+import BottomNav from './BottomNav';
 import PagePreloader from '@/components/PagePreloader';
 import { useAuth } from '@/lib/auth';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 
 const publicRoutes = ['/', '/auth', '/membership'];
 const bareRoutes = ['/onboarding', '/reset-password'];
+
+// Auto-close mobile sidebar on route change.
+function MobileSidebarAutoClose() {
+  const { setOpenMobile, isMobile } = useSidebar();
+  const location = useLocation();
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [location.pathname, isMobile, setOpenMobile]);
+  return null;
+}
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -20,8 +31,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const isPublic = publicRoutes.includes(location.pathname);
   const isBare = bareRoutes.includes(location.pathname);
   const showSidebar = user && !isPublic && !isBare;
+  const isMemberRoute = showSidebar && !isAdmin;
 
-  // Only show preloader on actual route changes, not tab switches
   useEffect(() => {
     if (prevPathRef.current !== location.pathname) {
       prevPathRef.current = location.pathname;
@@ -30,25 +41,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     }
   }, [location.pathname]);
 
-  const handlePreloaderComplete = () => {
-    setShowPreloader(false);
-  };
+  const handlePreloaderComplete = () => setShowPreloader(false);
 
   if (showSidebar) {
     return (
       <SidebarProvider>
+        <MobileSidebarAutoClose />
         <div className="min-h-screen flex w-full">
           {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
           {isAdmin ? <AdminSidebar /> : <MemberSidebar />}
           <div className="flex-1 flex flex-col min-w-0">
-            <Navbar />
-            <div className="flex items-center h-10 border-b border-border px-2 bg-background">
-              <SidebarTrigger />
-            </div>
-            <main className="flex-1 px-4 sm:px-6 lg:px-8">
+            <Navbar showSidebarTrigger />
+            <main className={`flex-1 px-4 sm:px-6 lg:px-8 ${isMemberRoute ? 'pb-20 md:pb-0' : ''}`}>
               {children}
             </main>
             <Footer />
+            {isMemberRoute && <BottomNav />}
           </div>
         </div>
       </SidebarProvider>
