@@ -89,6 +89,60 @@ export type Database = {
         }
         Relationships: []
       }
+      compliance_records: {
+        Row: {
+          bee_affidavit: boolean | null
+          cipc_registered: boolean | null
+          coida_registered: boolean | null
+          completed: boolean
+          created_at: string
+          csd_registered: boolean | null
+          has_bank_account: boolean | null
+          has_website: boolean | null
+          id: string
+          is_operational: boolean | null
+          paye_registered: boolean | null
+          sars_registered: boolean | null
+          uif_registered: boolean | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bee_affidavit?: boolean | null
+          cipc_registered?: boolean | null
+          coida_registered?: boolean | null
+          completed?: boolean
+          created_at?: string
+          csd_registered?: boolean | null
+          has_bank_account?: boolean | null
+          has_website?: boolean | null
+          id?: string
+          is_operational?: boolean | null
+          paye_registered?: boolean | null
+          sars_registered?: boolean | null
+          uif_registered?: boolean | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bee_affidavit?: boolean | null
+          cipc_registered?: boolean | null
+          coida_registered?: boolean | null
+          completed?: boolean
+          created_at?: string
+          csd_registered?: boolean | null
+          has_bank_account?: boolean | null
+          has_website?: boolean | null
+          id?: string
+          is_operational?: boolean | null
+          paye_registered?: boolean | null
+          sars_registered?: boolean | null
+          uif_registered?: boolean | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string
@@ -525,6 +579,8 @@ export type Database = {
           created_at: string
           event_id: string
           id: string
+          payment_reference: string | null
+          payment_status: string
           status: Database["public"]["Enums"]["rsvp_status"]
           ticket_number: string
           user_id: string
@@ -533,6 +589,8 @@ export type Database = {
           created_at?: string
           event_id: string
           id?: string
+          payment_reference?: string | null
+          payment_status?: string
           status?: Database["public"]["Enums"]["rsvp_status"]
           ticket_number: string
           user_id: string
@@ -541,6 +599,8 @@ export type Database = {
           created_at?: string
           event_id?: string
           id?: string
+          payment_reference?: string | null
+          payment_status?: string
           status?: Database["public"]["Enums"]["rsvp_status"]
           ticket_number?: string
           user_id?: string
@@ -610,6 +670,7 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      get_event_rsvp_count: { Args: { _event_id: string }; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
