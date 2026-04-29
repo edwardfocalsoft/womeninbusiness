@@ -61,9 +61,9 @@ export default function Compliance() {
     if (!allAnswered) { toast.error('Please answer all compliance questions.'); return; }
     setSaving(true);
     try {
-      const payload: Record<string, unknown> = { user_id: user.id, completed: true };
+      const payload: any = { user_id: user.id, completed: true };
       COMPLIANCE_FIELDS.forEach(f => { payload[f.key] = answers[f.key] === 'yes'; });
-      const { error } = await supabase.from('compliance_records').upsert(payload, { onConflict: 'user_id' });
+      const { error } = await supabase.from('compliance_records').upsert(payload as any, { onConflict: 'user_id' });
       if (error) throw error;
       toast.success('Compliance details saved.');
       setCompleted(true);
