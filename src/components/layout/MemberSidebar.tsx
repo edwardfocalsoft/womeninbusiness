@@ -7,7 +7,8 @@ import {
   Settings,
   HelpCircle,
   MessageSquare,
-  Store, // Added for the business icon
+  Store,
+  ShieldCheck,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import {
@@ -38,6 +39,11 @@ const mainItems = [
     title: 'Events', 
     url: '/events', 
     icon: Calendar 
+  },
+  { 
+    title: 'Compliance', 
+    url: '/compliance', 
+    icon: ShieldCheck 
   },
   { 
     title: 'Announcements', 
