@@ -10,13 +10,13 @@ import {
 import liventsLogo from '@/assets/livents-logo.png';
 
 const adminItems = [
-  { title: 'Dashboard', url: '/admin/members', icon: LayoutDashboard },
+  { title: 'Dashboard', url: '/admin', icon: LayoutDashboard },
   { title: 'Payments', url: '/admin/payments', icon: CreditCard },
   { title: 'Members', url: '/admin/members', icon: Users },
+  { title: 'Compliance', url: '/admin/compliance', icon: ShieldCheck },
   { title: 'Claims', url: '/admin/claims', icon: ShieldCheck },
   { title: 'Events', url: '/admin/events', icon: Calendar },
   { title: 'Announcements', url: '/admin/announcements', icon: Megaphone },
-  { title: 'Resources', url: '/admin/resources', icon: BookOpen },
   { title: 'User & Roles', url: '/admin/users', icon: UserCog },
 ];
 

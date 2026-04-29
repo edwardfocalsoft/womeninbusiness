@@ -20,6 +20,8 @@ import Settings from "./pages/Settings";
 import Help from "./pages/Help";
 import Feedback from "./pages/Feedback";
 import AdminAuth from "./pages/AdminAuth";
+import Admin from "./pages/Admin";
+import AdminDashboard from "./pages/AdminDashboard";
 import AdminMembers from "./pages/AdminMembers";
 import AdminAnalytics from "./pages/AdminAnalytics";
 import AdminEvents from "./pages/AdminEvents";
@@ -29,6 +31,8 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminSettings from "./pages/AdminSettings";
 import AdminPayments from "./pages/AdminPayments";
 import AdminClaims from "./pages/AdminClaims";
+import AdminCompliance from "./pages/AdminCompliance";
+import Compliance from "./pages/Compliance";
 import Onboarding from "./pages/Onboarding";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
@@ -56,12 +60,15 @@ const App = () => (
               <Route path="/network" element={<Network />} />
               <Route path="/resources" element={<Resources />} />
               <Route path="/membership" element={<Membership />} />
+              <Route path="/compliance" element={<Compliance />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/help" element={<Help />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/profile" element={<Settings />} />
-              <Route path="/admin" element={<AdminAuth />} />
+              <Route path="/admin/auth" element={<AdminAuth />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/members" element={<AdminMembers />} />
+              <Route path="/admin/compliance" element={<AdminCompliance />} />
               <Route path="/admin/analytics" element={<AdminAnalytics />} />
               <Route path="/admin/events" element={<AdminEvents />} />
               <Route path="/admin/announcements" element={<AdminAnnouncements />} />
