@@ -33,26 +33,26 @@ const INDUSTRIES = [
   'Social Services', 'Sports & Recreation', 'Transport & Logistics', 'Other',
 ];
 
-function CompleteStep({ navigate }: { navigate: (path: string) => void }) {
+function CompleteStep({ navigate, nextPath }: { navigate: (path: string) => void; nextPath: string }) {
   const [countdown, setCountdown] = useState(5);
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) { clearInterval(timer); navigate('/dashboard'); return 0; }
+        if (prev <= 1) { clearInterval(timer); navigate(nextPath); return 0; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate]);
+  }, [navigate, nextPath]);
 
   return (
     <div className="rounded-[5px] border border-border bg-card p-8 shadow-sm text-center">
       <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
       <h2 className="text-xl font-bold mb-2">You're All Set!</h2>
-      <p className="text-muted-foreground text-sm mb-4">Your profile is complete. Welcome aboard!</p>
-      <p className="text-xs text-muted-foreground mb-6">Redirecting to dashboard in {countdown} second{countdown !== 1 ? 's' : ''}...</p>
-      <Button className="gap-2" onClick={() => navigate('/dashboard')}>
-        Go to Dashboard Now <ArrowRight className="w-4 h-4" />
+      <p className="text-muted-foreground text-sm mb-4">Next: complete your compliance details so we can support your business.</p>
+      <p className="text-xs text-muted-foreground mb-6">Redirecting in {countdown} second{countdown !== 1 ? 's' : ''}...</p>
+      <Button className="gap-2" onClick={() => navigate(nextPath)}>
+        Continue <ArrowRight className="w-4 h-4" />
       </Button>
     </div>
   );
