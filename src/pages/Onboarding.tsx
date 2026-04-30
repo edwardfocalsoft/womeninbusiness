@@ -739,7 +739,7 @@ export default function Onboarding() {
         )}
 
         {/* Complete Step */}
-        {step === 'complete' && <CompleteStep navigate={navigate} />}
+        {step === 'complete' && <CompleteStep navigate={navigate} nextPath="/compliance?from=onboarding" />}
       </div>
     </div>
   );
