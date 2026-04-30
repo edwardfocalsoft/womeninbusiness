@@ -589,18 +589,6 @@ export default function Onboarding() {
               </div>
             </div>
 
-            {/* I Have An Active Membership Button */}
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">already a member?</span></div>
-            </div>
-
-            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} loading={actionLoading} loadingText="Submitting claim...">
-              <ShieldCheck className="w-4 h-4" /> I Have An Active Membership
-            </Button>
-            <p className="text-center text-[10px] text-muted-foreground">
-              Claim your existing membership. You'll get 5 days temporary access while admin verifies.
-            </p>
           </div>
         )}
 
