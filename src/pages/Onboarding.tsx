@@ -66,6 +66,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [payfastLoading, setPayfastLoading] = useState(false);
+  const [hasPaid, setHasPaid] = useState<'unanswered' | 'yes' | 'no'>('unanswered');
   const [membership, setMembership] = useState<any>(null);
   const [pendingMember, setPendingMember] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
