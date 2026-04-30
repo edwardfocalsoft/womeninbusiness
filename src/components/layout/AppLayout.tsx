@@ -30,7 +30,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const prevPathRef = useRef(location.pathname);
 
   const isPublic = publicRoutes.includes(location.pathname);
-  const isBare = bareRoutes.includes(location.pathname);
+  // Compliance accessed from onboarding flow should render bare (no nav/sidebar/footer)
+  const isComplianceOnboarding =
+    location.pathname === '/compliance' &&
+    new URLSearchParams(location.search).get('from') === 'onboarding';
+  const isBare = bareRoutes.includes(location.pathname) || isComplianceOnboarding;
   const showSidebar = user && !isPublic && !isBare;
   const isMemberRoute = showSidebar && !isAdmin;
 
