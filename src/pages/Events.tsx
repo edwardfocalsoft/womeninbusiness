@@ -255,7 +255,7 @@ export default function Events() {
 
       <div className="container py-6 sm:py-8 px-4">
         <Tabs value={tab} onValueChange={setTab} className="w-full">
-          <TabsList className="mb-6">
+          <TabsList className="mb-6 grid w-full grid-cols-2">
             <TabsTrigger value="upcoming" className="gap-2"><Calendar className="w-4 h-4" /> Upcoming</TabsTrigger>
             <TabsTrigger value="past" className="gap-2"><History className="w-4 h-4" /> Previous Events</TabsTrigger>
           </TabsList>

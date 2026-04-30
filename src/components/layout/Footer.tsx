@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer className="border-t border-border py-6 bg-card">
+    <footer className="border-t border-border py-6 bg-card hidden md:block">
       <div className="container text-center">
         <p className="text-xs text-muted-foreground">
           © {new Date().getFullYear()} Livents · Event & Membership Management Platform
