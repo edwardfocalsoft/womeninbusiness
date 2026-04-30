@@ -48,6 +48,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return (
       <SidebarProvider>
         <MobileSidebarAutoClose />
+        <ComplianceGate />
         <div className="min-h-screen flex w-full">
           {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
           {isAdmin ? <AdminSidebar /> : <MemberSidebar />}
