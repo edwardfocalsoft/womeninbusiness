@@ -544,7 +544,7 @@ export default function Onboarding() {
                   <Button variant="outline" className="w-full" onClick={() => setHasPaid('no')} disabled={actionLoading}>
                     No, not yet
                   </Button>
-                  <Button className="w-full" onClick={() => { setHasPaid('yes'); handleClaimMembership(); }} loading={actionLoading && hasPaid === 'yes'} loadingText="Submitting...">
+                  <Button className="w-full" onClick={() => { setHasPaid('yes'); handleClaimMembership(); }} loading={actionLoading} loadingText="Submitting...">
                     Yes
                   </Button>
                 </div>
