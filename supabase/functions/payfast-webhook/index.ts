@@ -98,6 +98,23 @@ Deno.serve(async (req) => {
     const pfPaymentId = ordered.pf_payment_id;
     const email = ordered.email_address;
 
+    // Branch: event RSVP payment (custom_str1 === "event_rsvp")
+    if (ordered.custom_str1 === "event_rsvp" && ordered.custom_str2) {
+      const eventId = ordered.custom_str2;
+      const { data: rsvp } = await supabase.from("rsvps")
+        .select("*").eq("payment_reference", mPaymentId).maybeSingle();
+      if (rsvp) {
+        if (rsvp.payment_status !== "paid") {
+          await supabase.from("rsvps").update({ payment_status: "paid" } as any).eq("id", rsvp.id);
+          console.log("Event RSVP marked as paid", { rsvp_id: rsvp.id, event_id: eventId });
+        }
+      } else {
+        console.error("No matching RSVP for payment_reference", mPaymentId);
+      }
+      return new Response("OK", { status: 200, headers: corsHeaders });
+    }
+
+
     let { data: payment } = await supabase.from("payments")
       .select("*").eq("payment_reference", mPaymentId).maybeSingle();
 

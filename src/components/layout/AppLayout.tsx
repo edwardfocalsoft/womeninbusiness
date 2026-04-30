@@ -5,6 +5,7 @@ import Footer from './Footer';
 import MemberSidebar from './MemberSidebar';
 import AdminSidebar from './AdminSidebar';
 import BottomNav from './BottomNav';
+import ComplianceGate from './ComplianceGate';
 import PagePreloader from '@/components/PagePreloader';
 import { useAuth } from '@/lib/auth';
 import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
@@ -47,6 +48,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     return (
       <SidebarProvider>
         <MobileSidebarAutoClose />
+        <ComplianceGate />
         <div className="min-h-screen flex w-full">
           {showPreloader && <PagePreloader onComplete={handlePreloaderComplete} />}
           {isAdmin ? <AdminSidebar /> : <MemberSidebar />}

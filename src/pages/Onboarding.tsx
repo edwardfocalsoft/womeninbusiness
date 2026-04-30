@@ -33,26 +33,26 @@ const INDUSTRIES = [
   'Social Services', 'Sports & Recreation', 'Transport & Logistics', 'Other',
 ];
 
-function CompleteStep({ navigate }: { navigate: (path: string) => void }) {
+function CompleteStep({ navigate, nextPath }: { navigate: (path: string) => void; nextPath: string }) {
   const [countdown, setCountdown] = useState(5);
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
-        if (prev <= 1) { clearInterval(timer); navigate('/dashboard'); return 0; }
+        if (prev <= 1) { clearInterval(timer); navigate(nextPath); return 0; }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [navigate]);
+  }, [navigate, nextPath]);
 
   return (
     <div className="rounded-[5px] border border-border bg-card p-8 shadow-sm text-center">
       <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
       <h2 className="text-xl font-bold mb-2">You're All Set!</h2>
-      <p className="text-muted-foreground text-sm mb-4">Your profile is complete. Welcome aboard!</p>
-      <p className="text-xs text-muted-foreground mb-6">Redirecting to dashboard in {countdown} second{countdown !== 1 ? 's' : ''}...</p>
-      <Button className="gap-2" onClick={() => navigate('/dashboard')}>
-        Go to Dashboard Now <ArrowRight className="w-4 h-4" />
+      <p className="text-muted-foreground text-sm mb-4">Next: complete your compliance details so we can support your business.</p>
+      <p className="text-xs text-muted-foreground mb-6">Redirecting in {countdown} second{countdown !== 1 ? 's' : ''}...</p>
+      <Button className="gap-2" onClick={() => navigate(nextPath)}>
+        Continue <ArrowRight className="w-4 h-4" />
       </Button>
     </div>
   );
@@ -66,6 +66,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [payfastLoading, setPayfastLoading] = useState(false);
+  const [hasPaid, setHasPaid] = useState<'unanswered' | 'yes' | 'no'>('unanswered');
   const [membership, setMembership] = useState<any>(null);
   const [pendingMember, setPendingMember] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -533,73 +534,89 @@ export default function Onboarding() {
               </div>
             )}
 
-            {/* Plan Selection */}
-            <div className="grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setSelectedPlan('monthly')}
-                className={`rounded-[5px] border-2 p-4 text-center transition-all ${selectedPlan === 'monthly' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
-                <p className="text-2xl font-bold text-foreground">R{monthlyPrice}</p>
-                <p className="text-sm text-muted-foreground">per month</p>
-                {selectedPlan === 'monthly' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
-              </button>
-              <button type="button" onClick={() => setSelectedPlan('annual')}
-                className={`rounded-[5px] border-2 p-4 text-center transition-all relative ${selectedPlan === 'annual' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
-                {savingsPercent > 0 && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SAVE {savingsPercent}%</span>}
-                <p className="text-2xl font-bold text-foreground">R{annualPrice}</p>
-                <p className="text-sm text-muted-foreground">per year</p>
-                {selectedPlan === 'annual' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
-              </button>
-            </div>
+            {/* Have you paid for your WIB membership? */}
+            {hasPaid === 'unanswered' && (
+              <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm text-center space-y-4">
+                <ShieldCheck className="w-10 h-10 text-primary mx-auto" />
+                <h2 className="text-lg font-bold">Have you paid for your WIB membership?</h2>
+                <p className="text-sm text-muted-foreground">Let us know so we can set things up correctly.</p>
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <Button variant="outline" className="w-full" onClick={() => setHasPaid('no')} disabled={actionLoading}>
+                    No, not yet
+                  </Button>
+                  <Button className="w-full" onClick={() => { setHasPaid('yes'); handleClaimMembership(); }} loading={actionLoading} loadingText="Submitting...">
+                    Yes
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground pt-2">
+                  Selecting "Yes" gives you 5 days temporary access while admin verifies your membership.
+                </p>
+              </div>
+            )}
 
-            <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
-              <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-primary" />
-                {selectedPlan === 'annual' ? 'Annual' : 'Monthly'} Membership
-              </h2>
-
-              <div className="space-y-3">
-                <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
-                  <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
-                </Button>
-                {chargeFeeToClient && payfastFee > 0 && (
-                  <p className="text-center text-[11px] text-muted-foreground">
-                    PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
-                  </p>
-                )}
-
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-                  <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+            {hasPaid === 'no' && (
+              <>
+                {/* Plan Selection */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setSelectedPlan('monthly')}
+                    className={`rounded-[5px] border-2 p-4 text-center transition-all ${selectedPlan === 'monthly' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
+                    <p className="text-2xl font-bold text-foreground">R{monthlyPrice}</p>
+                    <p className="text-sm text-muted-foreground">per month</p>
+                    {selectedPlan === 'monthly' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
+                  </button>
+                  <button type="button" onClick={() => setSelectedPlan('annual')}
+                    className={`rounded-[5px] border-2 p-4 text-center transition-all relative ${selectedPlan === 'annual' ? 'border-primary bg-primary/5 shadow-sm' : 'border-border bg-card hover:border-muted-foreground/30'}`}>
+                    {savingsPercent > 0 && <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">SAVE {savingsPercent}%</span>}
+                    <p className="text-2xl font-bold text-foreground">R{annualPrice}</p>
+                    <p className="text-sm text-muted-foreground">per year</p>
+                    {selectedPlan === 'annual' && <CheckCircle2 className="w-5 h-5 text-primary mx-auto mt-2" />}
+                  </button>
                 </div>
 
-                <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} loading={actionLoading} loadingText="Saving..." disabled={payfastLoading}>
-                  Pay via EFT — R{baseAmount.toFixed(2)}
-                </Button>
-              </div>
+                <div className="rounded-[5px] border border-border bg-card p-6 shadow-sm">
+                  <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-primary" />
+                    {selectedPlan === 'annual' ? 'Annual' : 'Monthly'} Membership
+                  </h2>
 
-              <div className="mt-6 p-4 rounded-[5px] bg-muted/50 border border-border">
-                <p className="text-xs font-bold text-foreground mb-2">EFT Banking Details</p>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <p><strong>Bank:</strong> Capitec</p>
-                  <p><strong>Branch Code:</strong> 470010</p>
-                  <p><strong>Account Number:</strong> 1972031382</p>
-                  <p><strong>Reference:</strong> LIV-{user?.email?.split('@')[0]}</p>
+                  <div className="space-y-3">
+                    <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
+                      <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
+                    </Button>
+                    {chargeFeeToClient && payfastFee > 0 && (
+                      <p className="text-center text-[11px] text-muted-foreground">
+                        PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                      </p>
+                    )}
+
+                    <div className="relative my-4">
+                      <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
+                      <div className="relative flex justify-center text-xs"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+                    </div>
+
+                    <Button variant="outline" className="w-full gap-2" onClick={() => handlePayment('offline')} loading={actionLoading} loadingText="Saving..." disabled={payfastLoading}>
+                      Pay via EFT — R{baseAmount.toFixed(2)}
+                    </Button>
+                  </div>
+
+                  <div className="mt-6 p-4 rounded-[5px] bg-muted/50 border border-border">
+                    <p className="text-xs font-bold text-foreground mb-2">EFT Banking Details</p>
+                    <div className="space-y-1 text-xs text-muted-foreground">
+                      <p><strong>Bank:</strong> Capitec</p>
+                      <p><strong>Branch Code:</strong> 470010</p>
+                      <p><strong>Account Number:</strong> 1972031382</p>
+                      <p><strong>Reference:</strong> LIV-{user?.email?.split('@')[0]}</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-2">After EFT payment, the admin will verify and activate your membership.</p>
+                  </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-2">After EFT payment, the admin will verify and activate your membership.</p>
-              </div>
-            </div>
 
-            {/* I Have An Active Membership Button */}
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-border" /></div>
-              <div className="relative flex justify-center text-xs"><span className="bg-background px-2 text-muted-foreground">already a member?</span></div>
-            </div>
+                <button type="button" className="text-xs text-muted-foreground hover:text-foreground underline w-full text-center" onClick={() => setHasPaid('unanswered')}>
+                  ← Back
+                </button>
+              </>
+            )}
 
-            <Button variant="outline" className="w-full gap-2 border-green-300 text-green-700 hover:bg-green-50" onClick={handleClaimMembership} loading={actionLoading} loadingText="Submitting claim...">
-              <ShieldCheck className="w-4 h-4" /> I Have An Active Membership
-            </Button>
-            <p className="text-center text-[10px] text-muted-foreground">
-              Claim your existing membership. You'll get 5 days temporary access while admin verifies.
-            </p>
           </div>
         )}
 
@@ -722,7 +739,7 @@ export default function Onboarding() {
         )}
 
         {/* Complete Step */}
-        {step === 'complete' && <CompleteStep navigate={navigate} />}
+        {step === 'complete' && <CompleteStep navigate={navigate} nextPath="/compliance?from=onboarding" />}
       </div>
     </div>
   );
