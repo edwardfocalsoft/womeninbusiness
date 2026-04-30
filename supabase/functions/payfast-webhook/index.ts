@@ -117,6 +117,42 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200, headers: corsHeaders });
     }
 
+    // Branch: event RSVP payment (custom_str1 === "event_rsvp")
+    if (ordered.custom_str1 === "event_rsvp" && ordered.custom_str2) {
+      const eventId = ordered.custom_str2;
+      const { data: rsvp } = await supabase.from("rsvps")
+        .select("*").eq("payment_reference", mPaymentId).maybeSingle();
+      if (rsvp) {
+        if (rsvp.payment_status !== "paid") {
+          await supabase.from("rsvps").update({ payment_status: "paid" } as any).eq("id", rsvp.id);
+          console.log("Event RSVP marked as paid", { rsvp_id: rsvp.id, event_id: eventId });
+        }
+      } else {
+        console.error("No matching RSVP for payment_reference", mPaymentId);
+      }
+      return new Response("OK", { status: 200, headers: corsHeaders });
+    }
+
+    // Membership payment branch
+    let { data: payment } = await supabase.from("payments")
+      .select("*").eq("payment_reference", mPaymentId).maybeSingle();
+
+    if (!payment && email) {
+      const { data: usersList } = await supabase.auth.admin.listUsers();
+      const user = usersList?.users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+      if (user) {
+        const { data: pending } = await supabase.from("payments")
+          .select("*").eq("user_id", user.id).eq("status", "pending")
+          .order("created_at", { ascending: false }).limit(1).maybeSingle();
+        payment = pending;
+      }
+    }
+
+    if (!payment) {
+      console.error("No matching payment found for", mPaymentId);
+      return new Response("OK", { status: 200, headers: corsHeaders });
+    }
+
     if (payment.status === "completed") {
       console.log("Payment already completed");
       return new Response("OK", { status: 200, headers: corsHeaders });
