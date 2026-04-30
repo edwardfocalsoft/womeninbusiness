@@ -98,25 +98,6 @@ Deno.serve(async (req) => {
     const pfPaymentId = ordered.pf_payment_id;
     const email = ordered.email_address;
 
-    let { data: payment } = await supabase.from("payments")
-      .select("*").eq("payment_reference", mPaymentId).maybeSingle();
-
-    if (!payment && email) {
-      const { data: usersList } = await supabase.auth.admin.listUsers();
-      const user = usersList?.users.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
-      if (user) {
-        const { data: pending } = await supabase.from("payments")
-          .select("*").eq("user_id", user.id).eq("status", "pending")
-          .order("created_at", { ascending: false }).limit(1).maybeSingle();
-        payment = pending;
-      }
-    }
-
-    if (!payment) {
-      console.error("No matching payment found for", mPaymentId);
-      return new Response("OK", { status: 200, headers: corsHeaders });
-    }
-
     // Branch: event RSVP payment (custom_str1 === "event_rsvp")
     if (ordered.custom_str1 === "event_rsvp" && ordered.custom_str2) {
       const eventId = ordered.custom_str2;
@@ -133,7 +114,7 @@ Deno.serve(async (req) => {
       return new Response("OK", { status: 200, headers: corsHeaders });
     }
 
-    // Membership payment branch
+
     let { data: payment } = await supabase.from("payments")
       .select("*").eq("payment_reference", mPaymentId).maybeSingle();
 
