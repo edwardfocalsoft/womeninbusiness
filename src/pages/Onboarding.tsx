@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2, Clock, Upload, Loader2, ShieldCheck } from 'lucide-react';
 import TagInput from '@/components/TagInput';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import liventsLogoAlt from '@/assets/livents-logo-alt.png';
 
 const SERVICE_SUGGESTIONS = [
@@ -712,7 +713,7 @@ export default function Onboarding() {
               </div>
               <div>
                 <Label>Location</Label>
-                <Input value={businessForm.location} onChange={e => setBusinessForm(p => ({ ...p, location: e.target.value }))} placeholder="City, Province" />
+                <AddressAutocomplete value={businessForm.location} onChange={v => setBusinessForm(p => ({ ...p, location: v }))} placeholder="Start typing your business address..." />
               </div>
               <div>
                 <Label>Phone</Label>

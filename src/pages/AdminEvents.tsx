@@ -13,6 +13,7 @@ import { Plus, Trash2, Pencil, Eye, Calendar, MapPin, Users } from 'lucide-react
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import ImageCropper from '@/components/ImageCropper';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 const emptyForm = {
   title: '', description: '', event_type: 'virtual', location: '', virtual_link: '',
@@ -189,7 +190,7 @@ export default function AdminEvents() {
                 </SelectContent>
               </Select>
             </div>
-            {(form.event_type === 'physical' || form.event_type === 'hybrid') && <div><Label>Location</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} /></div>}
+            {(form.event_type === 'physical' || form.event_type === 'hybrid') && <div><Label>Location</Label><AddressAutocomplete value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Start typing the venue address..." /></div>}
             {(form.event_type === 'virtual' || form.event_type === 'hybrid') && <div><Label>Virtual Link</Label><Input value={form.virtual_link} onChange={e => setForm(p => ({ ...p, virtual_link: e.target.value }))} /></div>}
             <div className="grid grid-cols-2 gap-4">
               <div><Label>Start Date</Label><Input type="datetime-local" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
