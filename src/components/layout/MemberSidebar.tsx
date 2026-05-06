@@ -82,7 +82,6 @@ export default function MemberSidebar() {
         <a 
           href={item.url} 
           className={baseStyles}
-          target="_blank" 
           rel="noopener noreferrer"
         >
           {content}
