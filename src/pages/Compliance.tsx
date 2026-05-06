@@ -69,6 +69,7 @@ export default function Compliance() {
       if (error) throw error;
       toast.success('Compliance details saved.');
       setCompleted(true);
+      setEditing(false);
       // If user came from onboarding gate, send them to dashboard
       const params = new URLSearchParams(window.location.search);
       if (params.get('from') === 'onboarding') navigate('/dashboard', { replace: true });
