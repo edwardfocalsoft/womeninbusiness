@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Pencil } from 'lucide-react';
 
 export const COMPLIANCE_FIELDS: { key: string; label: string }[] = [
   { key: 'cipc_registered', label: 'Is your company registered with CIPC?' },
