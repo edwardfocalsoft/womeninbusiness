@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Camera } from 'lucide-react';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -85,7 +86,7 @@ export default function Profile() {
             <div><Label>Full Name</Label><Input value={form.full_name} onChange={e => setForm(p => ({ ...p, full_name: e.target.value }))} /></div>
             <div><Label>Business Name</Label><Input value={form.business_name} onChange={e => setForm(p => ({ ...p, business_name: e.target.value }))} /></div>
             <div><Label>Industry</Label><Input value={form.industry} onChange={e => setForm(p => ({ ...p, industry: e.target.value }))} placeholder="e.g. Technology, Fashion" /></div>
-            <div><Label>Location</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="City, Country" /></div>
+            <div><Label>Location</Label><AddressAutocomplete value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Start typing your address..." /></div>
             <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Website</Label><Input value={form.website} onChange={e => setForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
           </div>

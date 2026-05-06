@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { Camera } from 'lucide-react';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 
 const INDUSTRIES = [
   'Agriculture', 'Arts & Entertainment', 'Automotive', 'Beauty & Cosmetics',
@@ -103,7 +104,7 @@ export default function Settings() {
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Location</Label><Input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="City, Country" /></div>
+            <div><Label>Location</Label><AddressAutocomplete value={form.location} onChange={v => setForm(p => ({ ...p, location: v }))} placeholder="Start typing your address..." /></div>
             <div><Label>Phone</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
             <div><Label>Website</Label><Input value={form.website} onChange={e => setForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" /></div>
           </div>
