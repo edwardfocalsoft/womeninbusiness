@@ -181,8 +181,9 @@ export default function Onboarding() {
   const payfastMode = settings?.payfast_mode ?? 'sandbox';
 
   const baseAmount = selectedPlan === 'annual' ? annualPrice : monthlyPrice;
-  const payfastFee = chargeFeeToClient ? Math.round(baseAmount * 0.08 * 100) / 100 : 0;
-  const payfastTotal = baseAmount + payfastFee;
+  // Transaction fee removed — users pay the exact plan amount.
+  const payfastFee = 0;
+  const payfastTotal = baseAmount;
 
   const getMerchantCredentials = () => {
     if (payfastMode === 'live') {
