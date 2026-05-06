@@ -32,6 +32,8 @@ export default function Compliance() {
   const [saving, setSaving] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>(empty);
   const [completed, setCompleted] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const fromOnboarding = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'onboarding';
 
   useEffect(() => {
     if (authLoading) return;
