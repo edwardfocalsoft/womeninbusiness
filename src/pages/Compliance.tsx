@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { ShieldCheck, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Pencil } from 'lucide-react';
 
 export const COMPLIANCE_FIELDS: { key: string; label: string }[] = [
   { key: 'cipc_registered', label: 'Is your company registered with CIPC?' },
@@ -32,6 +32,8 @@ export default function Compliance() {
   const [saving, setSaving] = useState(false);
   const [answers, setAnswers] = useState<AnswerMap>(empty);
   const [completed, setCompleted] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const fromOnboarding = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'onboarding';
 
   useEffect(() => {
     if (authLoading) return;
@@ -67,6 +69,7 @@ export default function Compliance() {
       if (error) throw error;
       toast.success('Compliance details saved.');
       setCompleted(true);
+      setEditing(false);
       // If user came from onboarding gate, send them to dashboard
       const params = new URLSearchParams(window.location.search);
       if (params.get('from') === 'onboarding') navigate('/dashboard', { replace: true });
@@ -78,6 +81,8 @@ export default function Compliance() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>;
 
+  const isEditable = !completed || editing || fromOnboarding;
+
   return (
     <div className="py-8">
       <div className="max-w-2xl mx-auto">
@@ -85,12 +90,16 @@ export default function Compliance() {
           <ShieldCheck className="w-7 h-7 text-primary" />
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Compliance</h1>
-            <p className="text-muted-foreground text-sm">Help us understand your business needs.</p>
           </div>
-          {completed && (
-            <span className="ml-auto inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-[5px]">
-              <CheckCircle2 className="w-3 h-3" /> Completed
-            </span>
+          {completed && !editing && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-1 rounded-[5px]">
+                <CheckCircle2 className="w-3 h-3" /> Completed
+              </span>
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)} className="rounded-[5px]">
+                <Pencil className="w-3 h-3 mr-1" /> Edit
+              </Button>
+            </div>
           )}
         </div>
 
@@ -98,7 +107,11 @@ export default function Compliance() {
           {COMPLIANCE_FIELDS.map(f => (
             <div key={f.key} className="border-b border-border last:border-b-0 pb-4 last:pb-0">
               <Label className="text-sm mb-2 block">{f.label} <span className="text-destructive">*</span></Label>
-              <Select value={answers[f.key]} onValueChange={(v) => setAnswers(p => ({ ...p, [f.key]: v as 'yes' | 'no' }))}>
+              <Select
+                value={answers[f.key]}
+                onValueChange={(v) => setAnswers(p => ({ ...p, [f.key]: v as 'yes' | 'no' }))}
+                disabled={!isEditable}
+              >
                 <SelectTrigger className="rounded-[5px]"><SelectValue placeholder="Yes / No" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="yes">Yes</SelectItem>
@@ -108,9 +121,18 @@ export default function Compliance() {
             </div>
           ))}
 
-          <Button className="w-full" size="lg" onClick={handleSave} loading={saving} loadingText="Saving..." disabled={!allAnswered}>
-            Save Compliance Details
-          </Button>
+          {isEditable && (
+            <div className="flex gap-2">
+              {completed && editing && (
+                <Button variant="outline" className="flex-1" size="lg" onClick={() => { setEditing(false); load(); }}>
+                  Cancel
+                </Button>
+              )}
+              <Button className="flex-1" size="lg" onClick={handleSave} loading={saving} loadingText="Saving..." disabled={!allAnswered}>
+                Save Compliance Details
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>
