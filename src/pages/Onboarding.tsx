@@ -179,6 +179,7 @@ export default function Onboarding() {
   const annualPrice = settings?.annual_price ?? 1000;
   const chargeFeeToClient = settings?.charge_fee_to_client ?? true;
   const payfastMode = settings?.payfast_mode ?? 'sandbox';
+  const forceRecurring = (settings as any)?.force_payfast_recurring ?? true;
 
   const baseAmount = selectedPlan === 'annual' ? annualPrice : monthlyPrice;
   // Transaction fee removed — users pay the exact plan amount.
@@ -227,8 +228,15 @@ export default function Onboarding() {
           m_payment_id: paymentId,
           amount: payfastTotal.toFixed(2),
           item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-          item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
+          item_description: `Livents ${plan} membership`,
         };
+
+        if (forceRecurring) {
+          payfastData.subscription_type = '1';
+          payfastData.frequency = plan === 'annual' ? '6' : '3';
+          payfastData.cycles = '0';
+          payfastData.recurring_amount = payfastTotal.toFixed(2);
+        }
 
         // Reuse any existing pending payment (e.g. from prior EFT selection)
         // instead of creating duplicates.
@@ -332,8 +340,15 @@ export default function Onboarding() {
         m_payment_id: paymentId,
         amount: payfastTotal.toFixed(2),
         item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-        item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
+        item_description: `Livents ${plan} membership`,
       };
+
+      if (forceRecurring) {
+        payfastData.subscription_type = '1';
+        payfastData.frequency = plan === 'annual' ? '6' : '3';
+        payfastData.cycles = '0';
+        payfastData.recurring_amount = payfastTotal.toFixed(2);
+      }
 
       // Reuse the existing pending EFT payment row instead of duplicating
       const { data: existingPending } = await supabase.from('payments')
