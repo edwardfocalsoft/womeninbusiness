@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           annual_price: number
           charge_fee_to_client: boolean
+          force_payfast_recurring: boolean
           id: number
           monthly_price: number
           org_email: string
@@ -31,6 +32,7 @@ export type Database = {
         Insert: {
           annual_price?: number
           charge_fee_to_client?: boolean
+          force_payfast_recurring?: boolean
           id?: number
           monthly_price?: number
           org_email?: string
@@ -44,6 +46,7 @@ export type Database = {
         Update: {
           annual_price?: number
           charge_fee_to_client?: boolean
+          force_payfast_recurring?: boolean
           id?: number
           monthly_price?: number
           org_email?: string

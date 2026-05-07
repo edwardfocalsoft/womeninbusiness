@@ -1,0 +1,1 @@
+ALTER TABLE public.admin_settings ADD COLUMN IF NOT EXISTS force_payfast_recurring boolean NOT NULL DEFAULT true;
