@@ -22,6 +22,7 @@ export default function AdminSettings() {
   const [monthlyPrice, setMonthlyPrice] = useState('100');
   const [annualPrice, setAnnualPrice] = useState('1000');
   const [chargeFeeToClient, setChargeFeeToClient] = useState(true);
+  const [forceRecurring, setForceRecurring] = useState(true);
   const [payfastMode, setPayfastMode] = useState('sandbox');
   const [merchantIdLive, setMerchantIdLive] = useState('');
   const [merchantKeyLive, setMerchantKeyLive] = useState('');
@@ -40,6 +41,7 @@ export default function AdminSettings() {
         setMonthlyPrice(String(data.monthly_price));
         setAnnualPrice(String(data.annual_price));
         setChargeFeeToClient((data as any).charge_fee_to_client ?? true);
+        setForceRecurring((data as any).force_payfast_recurring ?? true);
         setPayfastMode((data as any).payfast_mode ?? 'sandbox');
         setMerchantIdLive((data as any).payfast_merchant_id_live ?? '');
         setMerchantKeyLive((data as any).payfast_merchant_key_live ?? '');
@@ -56,6 +58,7 @@ export default function AdminSettings() {
       monthly_price: Number(monthlyPrice),
       annual_price: Number(annualPrice),
       charge_fee_to_client: chargeFeeToClient,
+      force_payfast_recurring: forceRecurring,
       payfast_mode: payfastMode,
       payfast_merchant_id_live: merchantIdLive,
       payfast_merchant_key_live: merchantKeyLive,
@@ -126,6 +129,14 @@ export default function AdminSettings() {
                   <p className="text-xs text-muted-foreground">If enabled, an 8% PayFast fee is added to the client's total. If disabled, you absorb the fee.</p>
                 </div>
                 <Switch checked={chargeFeeToClient} onCheckedChange={setChargeFeeToClient} />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Force Recurring PayFast Payments</p>
+                  <p className="text-xs text-muted-foreground">When enabled, PayFast checkouts are set up as subscriptions so members are auto-debited on renewal (applies to both monthly and annual plans). Manual EFT payers are reminded instead.</p>
+                </div>
+                <Switch checked={forceRecurring} onCheckedChange={setForceRecurring} />
               </div>
               <Separator />
               <div>

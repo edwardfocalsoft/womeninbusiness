@@ -179,6 +179,7 @@ export default function Onboarding() {
   const annualPrice = settings?.annual_price ?? 1000;
   const chargeFeeToClient = settings?.charge_fee_to_client ?? true;
   const payfastMode = settings?.payfast_mode ?? 'sandbox';
+  const forceRecurring = (settings as any)?.force_payfast_recurring ?? true;
 
   const baseAmount = selectedPlan === 'annual' ? annualPrice : monthlyPrice;
   // Transaction fee removed — users pay the exact plan amount.
@@ -227,8 +228,15 @@ export default function Onboarding() {
           m_payment_id: paymentId,
           amount: payfastTotal.toFixed(2),
           item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-          item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
+          item_description: `Livents ${plan} membership`,
         };
+
+        if (forceRecurring) {
+          payfastData.subscription_type = '1';
+          payfastData.frequency = plan === 'annual' ? '6' : '3';
+          payfastData.cycles = '0';
+          payfastData.recurring_amount = payfastTotal.toFixed(2);
+        }
 
         // Reuse any existing pending payment (e.g. from prior EFT selection)
         // instead of creating duplicates.
@@ -332,8 +340,15 @@ export default function Onboarding() {
         m_payment_id: paymentId,
         amount: payfastTotal.toFixed(2),
         item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-        item_description: `Livents ${plan} membership${chargeFeeToClient && payfastFee > 0 ? ` (incl. R${payfastFee.toFixed(2)} transaction fee)` : ''}`,
+        item_description: `Livents ${plan} membership`,
       };
+
+      if (forceRecurring) {
+        payfastData.subscription_type = '1';
+        payfastData.frequency = plan === 'annual' ? '6' : '3';
+        payfastData.cycles = '0';
+        payfastData.recurring_amount = payfastTotal.toFixed(2);
+      }
 
       // Reuse the existing pending EFT payment row instead of duplicating
       const { data: existingPending } = await supabase.from('payments')
@@ -585,9 +600,9 @@ export default function Onboarding() {
                     <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
                       <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
                     </Button>
-                    {chargeFeeToClient && payfastFee > 0 && (
+                    {forceRecurring && (
                       <p className="text-center text-[11px] text-muted-foreground">
-                        PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                        Auto-renews {selectedPlan === 'annual' ? 'annually' : 'monthly'} — you'll be auto-debited on your renewal date. Cancel anytime via support.
                       </p>
                     )}
 
@@ -680,9 +695,9 @@ export default function Onboarding() {
               <Button className="w-full gap-2" onClick={handlePayfastFromPending} loading={payfastLoading} loadingText="Redirecting to PayFast...">
                 <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
               </Button>
-              {chargeFeeToClient && payfastFee > 0 && (
+              {forceRecurring && (
                 <p className="text-center text-[11px] text-muted-foreground mt-2">
-                  PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                  Auto-renews {selectedPlan === 'annual' ? 'annually' : 'monthly'} — you'll be auto-debited on your renewal date.
                 </p>
               )}
             </div>
