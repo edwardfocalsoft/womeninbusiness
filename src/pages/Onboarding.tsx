@@ -224,9 +224,9 @@ export default function Onboarding() {
     today.setHours(0, 0, 0, 0);
     const nextBilling = getNextBillingDate(selectedBillingDay, today);
     const daysUntil = Math.max(1, Math.round((nextBilling.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
-    const dailyRate = monthlyPrice / 30;
+    const dailyRate = monthlyPrice / 31;
     const proRataAmount = +(dailyRate * daysUntil).toFixed(2);
-    const useProRata = daysUntil < 10;
+    const useProRata = daysUntil < 30;
     const initialAmount = useProRata ? +(proRataAmount + monthlyPrice).toFixed(2) : monthlyPrice;
     // Subscription anchor (first recurring charge date)
     const subscriptionStart = useProRata
