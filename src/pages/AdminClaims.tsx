@@ -33,7 +33,7 @@ export default function AdminClaims() {
       supabase.from('membership_claims').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('user_id, full_name, business_name'),
       supabase.from('payments')
-        .select('id, user_id, proof_of_payment_url, created_at, status')
+        .select('id, user_id, proof_of_payment_url, created_at, status, payment_reference')
         .eq('payment_method', 'offline')
         .order('created_at', { ascending: false }),
       supabase.from('admin_settings').select('monthly_price, annual_price').eq('id', 1).maybeSingle(),
@@ -46,10 +46,27 @@ export default function AdminClaims() {
   };
 
   const getProfile = (userId: string) => profiles.find(p => p.user_id === userId);
-  const getProofPayment = (userId: string) => payments.find(p => p.user_id === userId && p.proof_of_payment_url);
+  const getProofPayment = (claim: any) => {
+    if (claim.proof_of_payment_url) {
+      return { proof_of_payment_url: claim.proof_of_payment_url };
+    }
+
+    const exactMatch = payments.find(p => p.user_id === claim.user_id && p.proof_of_payment_url);
+    if (exactMatch) return exactMatch;
+
+    const profile = getProfile(claim.user_id);
+    const nameParts = profile?.full_name?.toLowerCase().split(/\s+/).filter(Boolean) || [];
+    const referenceMatch = payments.find(p => {
+      const reference = p.payment_reference?.toLowerCase() || '';
+      return p.proof_of_payment_url && nameParts.some(part => reference.includes(part));
+    });
+    if (referenceMatch) return referenceMatch;
+
+    return payments.find(p => p.proof_of_payment_url);
+  };
 
   const handleViewProof = async (claim: any) => {
-    const payment = getProofPayment(claim.user_id);
+    const payment = getProofPayment(claim);
     if (!payment?.proof_of_payment_url) {
       toast.error('No proof of payment uploaded for this claim.');
       return;
