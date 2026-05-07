@@ -766,6 +766,87 @@ export default function Onboarding() {
         {/* Complete Step */}
         {step === 'complete' && <CompleteStep navigate={navigate} nextPath="/compliance?from=onboarding" />}
       </div>
+
+      {/* Billing Date Selection Modal (PayFast monthly recurring) */}
+      <Dialog open={billingDateModalOpen} onOpenChange={(o) => !payfastLoading && setBillingDateModalOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-primary" /> Choose Your Billing Date
+            </DialogTitle>
+            <DialogDescription>
+              Pick the day of the month you'd like to be auto-debited going forward.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <RadioGroup
+              value={String(selectedBillingDay)}
+              onValueChange={(v) => setSelectedBillingDay(Number(v) as 1 | 15 | 25)}
+              className="grid grid-cols-3 gap-2"
+            >
+              {[1, 15, 25].map((d) => (
+                <label
+                  key={d}
+                  htmlFor={`bd-${d}`}
+                  className={`cursor-pointer rounded-[5px] border-2 p-3 text-center transition-all ${
+                    selectedBillingDay === d ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <RadioGroupItem id={`bd-${d}`} value={String(d)} className="sr-only" />
+                  <p className="text-lg font-bold">{d}{d === 1 ? 'st' : 'th'}</p>
+                  <p className="text-[10px] text-muted-foreground">of the month</p>
+                </label>
+              ))}
+            </RadioGroup>
+
+            <div className="rounded-[5px] border border-border bg-muted/40 p-4 text-sm space-y-2">
+              {proRataInfo.useProRata ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pro-rata ({proRataInfo.daysUntil} day{proRataInfo.daysUntil !== 1 ? 's' : ''} until {formatLongDate(proRataInfo.nextBilling)})</span>
+                    <span className="font-medium">R{proRataInfo.proRataAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Next full month (in advance)</span>
+                    <span className="font-medium">R{monthlyPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between font-bold">
+                    <span>Due today</span>
+                    <span className="text-primary">R{proRataInfo.initialAmount.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Your subscription of <strong>R{monthlyPrice.toFixed(2)}/month</strong> will then auto-debit on the{' '}
+                    <strong>{selectedBillingDay}{selectedBillingDay === 1 ? 'st' : 'th'}</strong> of each month, starting{' '}
+                    <strong>{formatLongDate(proRataInfo.subscriptionStart)}</strong>.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between font-bold">
+                    <span>Due today</span>
+                    <span className="text-primary">R{monthlyPrice.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Covers the period until <strong>{formatLongDate(proRataInfo.nextBilling)}</strong>. Your subscription of{' '}
+                    <strong>R{monthlyPrice.toFixed(2)}/month</strong> will then auto-debit on the{' '}
+                    <strong>{selectedBillingDay}{selectedBillingDay === 1 ? 'st' : 'th'}</strong> of each month thereafter.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setBillingDateModalOpen(false)} disabled={payfastLoading}>
+              Cancel
+            </Button>
+            <Button onClick={confirmBillingDateAndPay} loading={payfastLoading} loadingText="Redirecting...">
+              <CreditCard className="w-4 h-4" /> Continue to PayFast — R{proRataInfo.initialAmount.toFixed(2)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
