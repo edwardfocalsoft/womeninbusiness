@@ -7,8 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { AlertCircle, ArrowRight, CheckCircle2, CreditCard, Building2, Clock, Upload, Loader2, ShieldCheck } from 'lucide-react';
+import { AlertCircle, ArrowRight, CalendarDays, CheckCircle2, CreditCard, Building2, Clock, Upload, Loader2, ShieldCheck } from 'lucide-react';
 import TagInput from '@/components/TagInput';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import liventsLogoAlt from '@/assets/livents-logo-alt.png';
@@ -76,6 +78,8 @@ export default function Onboarding() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [billingDateModalOpen, setBillingDateModalOpen] = useState(false);
+  const [selectedBillingDay, setSelectedBillingDay] = useState<1 | 15 | 25>(1);
   const [businessForm, setBusinessForm] = useState({
     business_name: '', industry: '', products_services: '',
     location: '', phone: '', website: '', bio: '',
@@ -201,76 +205,117 @@ export default function Onboarding() {
     };
   };
 
+  // Compute the next occurrence of the chosen billing day-of-month from today
+  const getNextBillingDate = (day: number, from: Date = new Date()): Date => {
+    const d = new Date(from.getFullYear(), from.getMonth(), day);
+    if (d <= from) d.setMonth(d.getMonth() + 1);
+    return d;
+  };
+
+  const formatYMD = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const formatLongDate = (d: Date) =>
+    d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Pro-rata breakdown for the selected billing day. Only relevant for monthly + recurring.
+  const proRataInfo = (() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextBilling = getNextBillingDate(selectedBillingDay, today);
+    const daysUntil = Math.max(1, Math.round((nextBilling.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+    const dailyRate = monthlyPrice / 30;
+    const proRataAmount = +(dailyRate * daysUntil).toFixed(2);
+    const useProRata = daysUntil < 10;
+    const initialAmount = useProRata ? +(proRataAmount + monthlyPrice).toFixed(2) : monthlyPrice;
+    // Subscription anchor (first recurring charge date)
+    const subscriptionStart = useProRata
+      ? new Date(nextBilling.getFullYear(), nextBilling.getMonth() + 1, selectedBillingDay)
+      : nextBilling;
+    return { daysUntil, dailyRate, proRataAmount, useProRata, initialAmount, subscriptionStart, nextBilling };
+  })();
+
+  const submitPayfastForm = async (opts: { initialAmount: number; billingDate?: Date; reuseExisting?: boolean }) => {
+    if (!user) return;
+    const plan = selectedPlan;
+    const { merchantId, merchantKey, url } = getMerchantCredentials();
+    const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
+    const initialAmount = +opts.initialAmount.toFixed(2);
+
+    const payfastData: Record<string, string> = {
+      merchant_id: merchantId, merchant_key: merchantKey,
+      return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
+      cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
+      notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
+      name_first: profile?.full_name?.split(' ')[0] || '',
+      name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
+      email_address: user.email || '',
+      m_payment_id: paymentId,
+      amount: initialAmount.toFixed(2),
+      item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
+      item_description: `Livents ${plan} membership`,
+    };
+
+    if (forceRecurring) {
+      payfastData.subscription_type = '1';
+      payfastData.frequency = plan === 'annual' ? '6' : '3';
+      payfastData.cycles = '0';
+      payfastData.recurring_amount = monthlyPrice.toFixed(2);
+      if (opts.billingDate) payfastData.billing_date = formatYMD(opts.billingDate);
+    }
+
+    const { data: existingPending } = await supabase.from('payments')
+      .select('id').eq('user_id', user.id).eq('status', 'pending')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+    if (existingPending) {
+      await supabase.from('payments').update({
+        amount: initialAmount, transaction_fee: 0,
+        net_amount: initialAmount, payment_method: 'payfast',
+        payment_reference: paymentId, plan,
+      }).eq('id', existingPending.id);
+    } else {
+      await supabase.from('payments').insert({
+        user_id: user.id, amount: initialAmount, transaction_fee: 0,
+        net_amount: initialAmount, payment_method: 'payfast',
+        payment_reference: paymentId, status: 'pending', plan,
+      });
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = url;
+    Object.entries(payfastData).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = key; input.value = value;
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  };
+
   const handlePayment = async (method: 'payfast' | 'offline') => {
     if (!user) return;
 
     if (method === 'payfast') {
-      setPayfastLoading(true);
-    } else {
-      setActionLoading(true);
-    }
-
-    try {
-      const plan = selectedPlan;
-
-      if (method === 'payfast') {
-        const { merchantId, merchantKey, url } = getMerchantCredentials();
-        const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
-
-        const payfastData: Record<string, string> = {
-          merchant_id: merchantId, merchant_key: merchantKey,
-          return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
-          cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-          notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
-          name_first: profile?.full_name?.split(' ')[0] || '',
-          name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
-          email_address: user.email || '',
-          m_payment_id: paymentId,
-          amount: payfastTotal.toFixed(2),
-          item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-          item_description: `Livents ${plan} membership`,
-        };
-
-        if (forceRecurring) {
-          payfastData.subscription_type = '1';
-          payfastData.frequency = plan === 'annual' ? '6' : '3';
-          payfastData.cycles = '0';
-          payfastData.recurring_amount = payfastTotal.toFixed(2);
-        }
-
-        // Reuse any existing pending payment (e.g. from prior EFT selection)
-        // instead of creating duplicates.
-        const { data: existingPending } = await supabase.from('payments')
-          .select('id').eq('user_id', user.id).eq('status', 'pending')
-          .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-        if (existingPending) {
-          await supabase.from('payments').update({
-            amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-            net_amount: baseAmount, payment_method: 'payfast',
-            payment_reference: paymentId, plan,
-          }).eq('id', existingPending.id);
-        } else {
-          await supabase.from('payments').insert({
-            user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-            net_amount: baseAmount, payment_method: 'payfast',
-            payment_reference: paymentId, status: 'pending', plan,
-          });
-        }
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = url;
-        Object.entries(payfastData).forEach(([key, value]) => {
-          const input = document.createElement('input');
-          input.type = 'hidden'; input.name = key; input.value = value;
-          form.appendChild(input);
-        });
-        document.body.appendChild(form);
-        form.submit();
+      // For monthly + recurring, prompt user to pick a billing date (1st/15th/25th)
+      if (selectedPlan === 'monthly' && forceRecurring) {
+        setBillingDateModalOpen(true);
         return;
       }
+      setPayfastLoading(true);
+      try {
+        await submitPayfastForm({ initialAmount: payfastTotal });
+      } catch (err: any) {
+        toast.error(err.message);
+        setPayfastLoading(false);
+      }
+      return;
+    }
 
+    setActionLoading(true);
+    try {
+      const plan = selectedPlan;
       // Offline/EFT payment — reuse existing pending row if present
       const { data: existingPending } = await supabase.from('payments')
         .select('id').eq('user_id', user.id).eq('status', 'pending')
@@ -293,7 +338,19 @@ export default function Onboarding() {
       toast.error(err.message);
     }
     setActionLoading(false);
-    setPayfastLoading(false);
+  };
+
+  const confirmBillingDateAndPay = async () => {
+    setPayfastLoading(true);
+    try {
+      await submitPayfastForm({
+        initialAmount: proRataInfo.initialAmount,
+        billingDate: proRataInfo.subscriptionStart,
+      });
+    } catch (err: any) {
+      toast.error(err.message);
+      setPayfastLoading(false);
+    }
   };
 
   const handleProofUpload = async () => {
@@ -323,66 +380,17 @@ export default function Onboarding() {
 
   const handlePayfastFromPending = async () => {
     if (!user) return;
+    if (selectedPlan === 'monthly' && forceRecurring) {
+      setBillingDateModalOpen(true);
+      return;
+    }
     setPayfastLoading(true);
     try {
-      const plan = selectedPlan;
-      const { merchantId, merchantKey, url } = getMerchantCredentials();
-      const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
-
-      const payfastData: Record<string, string> = {
-        merchant_id: merchantId, merchant_key: merchantKey,
-        return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
-        cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-        notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
-        name_first: profile?.full_name?.split(' ')[0] || '',
-        name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
-        email_address: user.email || '',
-        m_payment_id: paymentId,
-        amount: payfastTotal.toFixed(2),
-        item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-        item_description: `Livents ${plan} membership`,
-      };
-
-      if (forceRecurring) {
-        payfastData.subscription_type = '1';
-        payfastData.frequency = plan === 'annual' ? '6' : '3';
-        payfastData.cycles = '0';
-        payfastData.recurring_amount = payfastTotal.toFixed(2);
-      }
-
-      // Reuse the existing pending EFT payment row instead of duplicating
-      const { data: existingPending } = await supabase.from('payments')
-        .select('id').eq('user_id', user.id).eq('status', 'pending')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-      if (existingPending) {
-        await supabase.from('payments').update({
-          amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-          net_amount: baseAmount, payment_method: 'payfast',
-          payment_reference: paymentId, plan,
-        }).eq('id', existingPending.id);
-      } else {
-        await supabase.from('payments').insert({
-          user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-          net_amount: baseAmount, payment_method: 'payfast',
-          payment_reference: paymentId, status: 'pending', plan,
-        });
-      }
-
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = url;
-      Object.entries(payfastData).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden'; input.name = key; input.value = value;
-        form.appendChild(input);
-      });
-      document.body.appendChild(form);
-      form.submit();
+      await submitPayfastForm({ initialAmount: payfastTotal });
     } catch (err: any) {
       toast.error(err.message);
+      setPayfastLoading(false);
     }
-    setPayfastLoading(false);
   };
 
   const handleClaimMembership = async () => {
@@ -758,6 +766,87 @@ export default function Onboarding() {
         {/* Complete Step */}
         {step === 'complete' && <CompleteStep navigate={navigate} nextPath="/compliance?from=onboarding" />}
       </div>
+
+      {/* Billing Date Selection Modal (PayFast monthly recurring) */}
+      <Dialog open={billingDateModalOpen} onOpenChange={(o) => !payfastLoading && setBillingDateModalOpen(o)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-primary" /> Choose Your Billing Date
+            </DialogTitle>
+            <DialogDescription>
+              Pick the day of the month you'd like to be auto-debited going forward.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <RadioGroup
+              value={String(selectedBillingDay)}
+              onValueChange={(v) => setSelectedBillingDay(Number(v) as 1 | 15 | 25)}
+              className="grid grid-cols-3 gap-2"
+            >
+              {[1, 15, 25].map((d) => (
+                <label
+                  key={d}
+                  htmlFor={`bd-${d}`}
+                  className={`cursor-pointer rounded-[5px] border-2 p-3 text-center transition-all ${
+                    selectedBillingDay === d ? 'border-primary bg-primary/5' : 'border-border hover:border-muted-foreground/30'
+                  }`}
+                >
+                  <RadioGroupItem id={`bd-${d}`} value={String(d)} className="sr-only" />
+                  <p className="text-lg font-bold">{d}{d === 1 ? 'st' : 'th'}</p>
+                  <p className="text-[10px] text-muted-foreground">of the month</p>
+                </label>
+              ))}
+            </RadioGroup>
+
+            <div className="rounded-[5px] border border-border bg-muted/40 p-4 text-sm space-y-2">
+              {proRataInfo.useProRata ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Pro-rata ({proRataInfo.daysUntil} day{proRataInfo.daysUntil !== 1 ? 's' : ''} until {formatLongDate(proRataInfo.nextBilling)})</span>
+                    <span className="font-medium">R{proRataInfo.proRataAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Next full month (in advance)</span>
+                    <span className="font-medium">R{monthlyPrice.toFixed(2)}</span>
+                  </div>
+                  <div className="border-t border-border pt-2 flex justify-between font-bold">
+                    <span>Due today</span>
+                    <span className="text-primary">R{proRataInfo.initialAmount.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Your subscription of <strong>R{monthlyPrice.toFixed(2)}/month</strong> will then auto-debit on the{' '}
+                    <strong>{selectedBillingDay}{selectedBillingDay === 1 ? 'st' : 'th'}</strong> of each month, starting{' '}
+                    <strong>{formatLongDate(proRataInfo.subscriptionStart)}</strong>.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between font-bold">
+                    <span>Due today</span>
+                    <span className="text-primary">R{monthlyPrice.toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Covers the period until <strong>{formatLongDate(proRataInfo.nextBilling)}</strong>. Your subscription of{' '}
+                    <strong>R{monthlyPrice.toFixed(2)}/month</strong> will then auto-debit on the{' '}
+                    <strong>{selectedBillingDay}{selectedBillingDay === 1 ? 'st' : 'th'}</strong> of each month thereafter.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setBillingDateModalOpen(false)} disabled={payfastLoading}>
+              Cancel
+            </Button>
+            <Button onClick={confirmBillingDateAndPay} loading={payfastLoading} loadingText="Redirecting...">
+              <CreditCard className="w-4 h-4" /> Continue to PayFast — R{proRataInfo.initialAmount.toFixed(2)}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
