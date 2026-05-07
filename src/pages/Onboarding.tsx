@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input'
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -353,9 +353,12 @@ export default function Onboarding() {
     }
   };
 
-  const grantTemporaryAccess = async () => {
+  const grantTemporaryAccess = async (proofOfPaymentUrl?: string) => {
     if (!user) return;
     const grantedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    const claimPayload = proofOfPaymentUrl
+      ? { granted_until: grantedUntil, proof_of_payment_url: proofOfPaymentUrl }
+      : { granted_until: grantedUntil };
     const { data: existingClaim } = await supabase.from('membership_claims')
       .select('id')
       .eq('user_id', user.id)
@@ -366,7 +369,7 @@ export default function Onboarding() {
 
     if (existingClaim) {
       const { error } = await supabase.from('membership_claims')
-        .update({ granted_until: grantedUntil })
+        .update(claimPayload)
         .eq('id', existingClaim.id);
       if (error) throw error;
     } else {
@@ -374,6 +377,7 @@ export default function Onboarding() {
         user_id: user.id,
         status: 'pending',
         granted_until: grantedUntil,
+        ...(proofOfPaymentUrl ? { proof_of_payment_url: proofOfPaymentUrl } : {}),
       });
       if (error) throw error;
     }
@@ -401,7 +405,7 @@ export default function Onboarding() {
         .eq('payment_method', 'offline');
       if (updateError) throw updateError;
 
-      await grantTemporaryAccess();
+      await grantTemporaryAccess(path);
 
       toast.success('Proof uploaded. You have 5 days temporary access while admin reviews your payment.');
       setProofFile(null);
