@@ -353,6 +353,37 @@ export default function Onboarding() {
     }
   };
 
+  const grantTemporaryAccess = async () => {
+    if (!user) return;
+    const grantedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: existingClaim } = await supabase.from('membership_claims')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingClaim) {
+      const { error } = await supabase.from('membership_claims')
+        .update({ granted_until: grantedUntil })
+        .eq('id', existingClaim.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase.from('membership_claims').insert({
+        user_id: user.id,
+        status: 'pending',
+        granted_until: grantedUntil,
+      });
+      if (error) throw error;
+    }
+
+    await supabase.from('user_roles').upsert(
+      { user_id: user.id, role: 'member' as const },
+      { onConflict: 'user_id,role' },
+    );
+  };
+
   const handleProofUpload = async () => {
     if (!user || !proofFile) return;
     setUploadingProof(true);
@@ -370,8 +401,11 @@ export default function Onboarding() {
         .eq('payment_method', 'offline');
       if (updateError) throw updateError;
 
-      toast.success('Proof of payment uploaded successfully!');
+      await grantTemporaryAccess();
+
+      toast.success('Proof uploaded. You have 5 days temporary access while admin reviews your payment.');
       setProofFile(null);
+      setStep('business-details');
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -397,16 +431,7 @@ export default function Onboarding() {
     if (!user) return;
     setActionLoading(true);
     try {
-      const grantedUntil = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
-      const { error } = await supabase.from('membership_claims').insert({
-        user_id: user.id,
-        status: 'pending',
-        granted_until: grantedUntil,
-      });
-      if (error) throw error;
-
-      // Give temporary access by creating a temporary membership
-      await supabase.from('user_roles').upsert({ user_id: user.id, role: 'member' as const }, { onConflict: 'user_id,role' });
+      await grantTemporaryAccess();
       
       toast.success('Your claim has been submitted. You have 5 days temporary access while admin reviews.');
       setStep('business-details');
@@ -654,8 +679,7 @@ export default function Onboarding() {
             <div>
               <h2 className="text-xl font-bold mb-2">Payment Pending Confirmation</h2>
               <p className="text-muted-foreground text-sm">
-                Your EFT payment has been recorded and is awaiting admin verification.
-                You will receive a notification once your membership is activated.
+                Please make your EFT payment and attach your proof of payment.
               </p>
             </div>
 
@@ -687,7 +711,7 @@ export default function Onboarding() {
                 </Button>
                 {proofFile && (
                   <Button size="sm" className="gap-1 text-xs" onClick={handleProofUpload} loading={uploadingProof} loadingText="Uploading...">
-                    <CheckCircle2 className="w-3 h-3" /> Upload
+                    <CheckCircle2 className="w-3 h-3" /> Submit & Continue
                   </Button>
                 )}
               </div>
