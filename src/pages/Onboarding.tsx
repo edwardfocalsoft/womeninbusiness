@@ -595,10 +595,10 @@ export default function Onboarding() {
                 <h2 className="text-lg font-bold">Have you paid for your WIB membership?</h2>
                 <p className="text-sm text-muted-foreground">Let us know so we can set things up correctly.</p>
                 <div className="grid grid-cols-2 gap-3 pt-2">
-                  <Button variant="outline" className="w-full" onClick={() => setHasPaid('no')} disabled={actionLoading}>
+                  <Button className="w-full" className="w-full" onClick={() => setHasPaid('no')} disabled={actionLoading}>
                     No, not yet
                   </Button>
-                  <Button className="w-full" onClick={() => { setHasPaid('yes'); handleClaimMembership(); }} loading={actionLoading} loadingText="Submitting...">
+                  <Button variant="outline" onClick={() => { setHasPaid('yes'); handleClaimMembership(); }} loading={actionLoading} loadingText="Submitting...">
                     Yes
                   </Button>
                 </div>
