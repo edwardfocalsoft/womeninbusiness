@@ -600,9 +600,9 @@ export default function Onboarding() {
                     <Button className="w-full gap-2" onClick={() => handlePayment('payfast')} loading={payfastLoading} loadingText="Redirecting to PayFast..." disabled={actionLoading}>
                       <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
                     </Button>
-                    {chargeFeeToClient && payfastFee > 0 && (
+                    {forceRecurring && (
                       <p className="text-center text-[11px] text-muted-foreground">
-                        PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                        Auto-renews {selectedPlan === 'annual' ? 'annually' : 'monthly'} — you'll be auto-debited on your renewal date. Cancel anytime via support.
                       </p>
                     )}
 
@@ -695,9 +695,11 @@ export default function Onboarding() {
               <Button className="w-full gap-2" onClick={handlePayfastFromPending} loading={payfastLoading} loadingText="Redirecting to PayFast...">
                 <CreditCard className="w-4 h-4" /> Pay with PayFast — R{payfastTotal.toFixed(2)}
               </Button>
-              {chargeFeeToClient && payfastFee > 0 && (
+              {forceRecurring && (
                 <p className="text-center text-[11px] text-muted-foreground mt-2">
-                  PayFast includes an 8% transaction fee (R{payfastFee.toFixed(2)})
+                  Auto-renews {selectedPlan === 'annual' ? 'annually' : 'monthly'} — you'll be auto-debited on your renewal date.
+                </p>
+              )}
                 </p>
               )}
             </div>
