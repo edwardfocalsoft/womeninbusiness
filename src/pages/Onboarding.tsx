@@ -743,7 +743,7 @@ export default function Onboarding() {
                 <Label>Phone</Label>
                 <Input value={businessForm.phone} onChange={e => setBusinessForm(p => ({ ...p, phone: e.target.value }))} placeholder="+27..." />
               </div>
-              <div className="sm:col-span-2">
+              <div className="sm:col-span-2" style={{ display: 'none' }}>>
                 <Label>Website</Label>
                 <Input value={businessForm.website} onChange={e => setBusinessForm(p => ({ ...p, website: e.target.value }))} placeholder="https://" />
               </div>
@@ -752,7 +752,7 @@ export default function Onboarding() {
               <Label>Products / Services *</Label>
               <TagInput value={businessForm.products_services} onChange={v => setBusinessForm(p => ({ ...p, products_services: v }))} placeholder="e.g. Catering, Event Planning..." maxTags={10} suggestions={SERVICE_SUGGESTIONS} />
             </div>
-            <div>
+            <div style={{ display: 'none' }}>>
               <Label>Bio</Label>
               <Textarea value={businessForm.bio} onChange={e => setBusinessForm(p => ({ ...p, bio: e.target.value }))} rows={3} placeholder="Tell us about yourself and your business..." />
             </div>
