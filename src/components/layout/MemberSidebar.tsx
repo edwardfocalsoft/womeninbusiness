@@ -33,7 +33,8 @@ const mainItems = [
     title: 'Manage My Business', 
     url: 'https://smeplus.co.za/dashboard', 
     icon: Store, 
-    isExternal: true 
+    isExternal: true,
+    comingSoon: true,
   },
   { 
     title: 'Events', 
@@ -67,15 +68,37 @@ export default function MemberSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
 
-  const renderMenuItem = (item: typeof mainItems[0]) => {
+  const renderMenuItem = (item: any) => {
     const content = (
       <>
         <item.icon className="h-4 w-4 mr-2" />
-        {!collapsed && <span>{item.title}</span>}
+        {!collapsed && (
+          <span className="flex items-center gap-2">
+            {item.title}
+            {item.comingSoon && (
+              <span className="text-[9px] uppercase tracking-wide bg-sidebar-accent text-sidebar-foreground/80 px-1.5 py-px rounded">
+                Soon
+              </span>
+            )}
+          </span>
+        )}
       </>
     );
 
     const baseStyles = "hover:bg-sidebar-accent/50 text-sidebar-foreground flex items-center w-full px-3 py-2 rounded-md transition-colors";
+
+    if (item.comingSoon) {
+      return (
+        <button
+          type="button"
+          aria-disabled="true"
+          disabled
+          className={`${baseStyles} opacity-60 cursor-not-allowed hover:bg-transparent`}
+        >
+          {content}
+        </button>
+      );
+    }
 
     if (item.isExternal) {
       return (

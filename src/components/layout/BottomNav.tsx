@@ -18,15 +18,18 @@ export default function BottomNav() {
           <Calendar className="w-5 h-5" />
           <span>Events</span>
         </NavLink>
-        <a
-          href="https://smeplus.co.za"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[10px] font-medium text-muted-foreground hover:text-foreground transition-colors"
+        <button
+          type="button"
+          aria-disabled="true"
+          disabled
+          className="relative flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-[10px] font-medium text-muted-foreground/60 cursor-not-allowed"
         >
           <Store className="w-5 h-5" />
           <span>SMEPlus</span>
-        </a>
+          <span className="absolute top-0.5 right-2 text-[7px] uppercase tracking-wide bg-muted text-muted-foreground px-1 py-px rounded">
+            Soon
+          </span>
+        </button>
       </div>
     </nav>
   );
