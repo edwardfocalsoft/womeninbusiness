@@ -15,6 +15,7 @@ export default function AdminPayments() {
   const navigate = useNavigate();
   const [payments, setPayments] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [memberships, setMemberships] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [methodFilter, setMethodFilter] = useState('all');
@@ -23,15 +24,69 @@ export default function AdminPayments() {
   useEffect(() => { if (isAdmin) fetchData(); }, [isAdmin]);
 
   const fetchData = async () => {
-    const [paymentsRes, profilesRes] = await Promise.all([
+    const [paymentsRes, profilesRes, membershipsRes] = await Promise.all([
       supabase.from('payments').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('user_id, full_name, business_name'),
+      supabase.from('memberships').select('user_id, status, expires_at'),
     ]);
-    setPayments(paymentsRes.data || []);
+    const paymentRows = paymentsRes.data || [];
+    const membershipRows = membershipsRes.data || [];
+
+    const activeMembershipUserIds = new Set(
+      membershipRows
+        .filter(m => m.status === 'active' && new Date(m.expires_at) >= new Date())
+        .map(m => m.user_id),
+    );
+
+    const payfastPaymentsToComplete = paymentRows.filter(
+      p => p.payment_method === 'payfast' && p.status === 'pending' && activeMembershipUserIds.has(p.user_id),
+    );
+
+    if (payfastPaymentsToComplete.length > 0) {
+      await supabase.from('payments')
+        .update({ status: 'completed' })
+        .in('id', payfastPaymentsToComplete.map(p => p.id));
+
+      paymentRows.forEach(p => {
+        if (payfastPaymentsToComplete.some(completed => completed.id === p.id)) {
+          p.status = 'completed';
+        }
+      });
+    }
+
+    setPayments(paymentRows);
     setProfiles(profilesRes.data || []);
+    setMemberships(membershipRows);
   };
 
   const getProfile = (userId: string) => profiles.find(p => p.user_id === userId);
+  const hasActiveMembership = (userId: string) => memberships.some(
+    m => m.user_id === userId && m.status === 'active' && new Date(m.expires_at) >= new Date(),
+  );
+
+  const handleViewProof = async (payment: any) => {
+    if (!payment.proof_of_payment_url) {
+      toast.error('No proof of payment uploaded for this payment.');
+      return;
+    }
+
+    const proofWindow = window.open('', '_blank');
+    try {
+      const { data, error } = await supabase.storage
+        .from('proof-of-payment')
+        .createSignedUrl(payment.proof_of_payment_url, 60 * 5);
+      if (error) throw error;
+
+      if (proofWindow) {
+        proofWindow.location.href = data.signedUrl;
+      } else {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (err: any) {
+      if (proofWindow) proofWindow.close();
+      toast.error(err.message || 'Could not open proof of payment.');
+    }
+  };
 
   const handleMarkPaid = async (payment: any) => {
     try {
@@ -209,10 +264,20 @@ export default function AdminPayments() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    {p.status === 'pending' && (
+                    {p.proof_of_payment_url && (
+                      <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => handleViewProof(p)}>
+                        <FileText className="w-3 h-3" /> View POP
+                      </Button>
+                    )}
+                    {p.status === 'pending' && p.payment_method === 'offline' && (
                       <Button size="sm" className="text-xs gap-1" onClick={() => handleMarkPaid(p)}>
                         <CheckCircle2 className="w-3 h-3" /> Mark as Paid
                       </Button>
+                    )}
+                    {p.status === 'pending' && p.payment_method === 'payfast' && (
+                      <Badge variant="outline" className="text-xs">
+                        {hasActiveMembership(p.user_id) ? 'Completing...' : 'Awaiting PayFast'}
+                      </Badge>
                     )}
                     <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => generateInvoice(p)}>
                       <FileText className="w-3 h-3" /> Invoice
