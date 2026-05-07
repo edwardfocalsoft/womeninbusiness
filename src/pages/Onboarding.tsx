@@ -78,6 +78,8 @@ export default function Onboarding() {
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [billingDateModalOpen, setBillingDateModalOpen] = useState(false);
+  const [selectedBillingDay, setSelectedBillingDay] = useState<1 | 15 | 25>(1);
   const [businessForm, setBusinessForm] = useState({
     business_name: '', industry: '', products_services: '',
     location: '', phone: '', website: '', bio: '',
