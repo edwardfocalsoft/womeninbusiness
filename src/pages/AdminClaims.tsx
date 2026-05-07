@@ -22,24 +22,26 @@ export default function AdminClaims() {
   const [startsAt, setStartsAt] = useState('');
   const [expiresAt, setExpiresAt] = useState('');
   const [plan, setPlan] = useState<'monthly' | 'annual'>('annual');
+  const [settings, setSettings] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
   useEffect(() => { if (isAdmin) fetchData(); }, [isAdmin]);
 
   const fetchData = async () => {
-    const [claimsRes, profilesRes, paymentsRes] = await Promise.all([
+    const [claimsRes, profilesRes, paymentsRes, settingsRes] = await Promise.all([
       supabase.from('membership_claims').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('user_id, full_name, business_name'),
       supabase.from('payments')
-        .select('id, user_id, proof_of_payment_url, created_at')
+        .select('id, user_id, proof_of_payment_url, created_at, status')
         .eq('payment_method', 'offline')
-        .not('proof_of_payment_url', 'is', null)
         .order('created_at', { ascending: false }),
+      supabase.from('admin_settings').select('monthly_price, annual_price').eq('id', 1).maybeSingle(),
     ]);
     setClaims(claimsRes.data || []);
     setProfiles(profilesRes.data || []);
     setPayments(paymentsRes.data || []);
+    setSettings(settingsRes.data);
     setLoading(false);
   };
 
@@ -81,6 +83,34 @@ export default function AdminClaims() {
         membership_starts_at: new Date(startsAt).toISOString(),
         membership_expires_at: new Date(expiresAt).toISOString(),
       }).eq('id', reviewClaim.id);
+
+      // Mark the user's matching payment as paid, or create one for "already paid" claims.
+      const { data: existingPayment } = await supabase.from('payments')
+        .select('id')
+        .eq('user_id', reviewClaim.user_id)
+        .eq('payment_method', 'offline')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingPayment) {
+        await supabase.from('payments')
+          .update({ status: 'completed', plan })
+          .eq('id', existingPayment.id);
+      } else {
+        const amount = plan === 'annual'
+          ? Number(settings?.annual_price ?? 1000)
+          : Number(settings?.monthly_price ?? 100);
+        await supabase.from('payments').insert({
+          user_id: reviewClaim.user_id,
+          amount,
+          transaction_fee: 0,
+          net_amount: amount,
+          payment_method: 'offline',
+          status: 'completed',
+          plan,
+        });
+      }
 
       // Create/update membership
       const { data: existing } = await supabase.from('memberships').select('id').eq('user_id', reviewClaim.user_id).maybeSingle();
@@ -168,11 +198,9 @@ export default function AdminClaims() {
                   </div>
                   {claim.status === 'pending' && (
                     <div className="flex gap-2">
-                      {getProofPayment(claim.user_id) && (
-                        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => handleViewProof(claim)}>
-                          <FileText className="w-3 h-3" /> View POP
-                        </Button>
-                      )}
+                      <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => handleViewProof(claim)}>
+                        <FileText className="w-3 h-3" /> View POP
+                      </Button>
                       <Button size="sm" className="text-xs gap-1" onClick={() => { setReviewClaim(claim); setStartsAt('2026-01-01'); setExpiresAt('2026-12-31'); }}>
                         <CheckCircle2 className="w-3 h-3" /> Approve
                       </Button>
