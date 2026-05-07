@@ -380,66 +380,17 @@ export default function Onboarding() {
 
   const handlePayfastFromPending = async () => {
     if (!user) return;
+    if (selectedPlan === 'monthly' && forceRecurring) {
+      setBillingDateModalOpen(true);
+      return;
+    }
     setPayfastLoading(true);
     try {
-      const plan = selectedPlan;
-      const { merchantId, merchantKey, url } = getMerchantCredentials();
-      const paymentId = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString();
-
-      const payfastData: Record<string, string> = {
-        merchant_id: merchantId, merchant_key: merchantKey,
-        return_url: `${window.location.origin}/onboarding?payment=success&plan=${plan}`,
-        cancel_url: `${window.location.origin}/onboarding?payment=cancelled`,
-        notify_url: `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payfast-webhook`,
-        name_first: profile?.full_name?.split(' ')[0] || '',
-        name_last: profile?.full_name?.split(' ').slice(1).join(' ') || '',
-        email_address: user.email || '',
-        m_payment_id: paymentId,
-        amount: payfastTotal.toFixed(2),
-        item_name: `Livents ${plan === 'annual' ? 'Annual' : 'Monthly'} Membership`,
-        item_description: `Livents ${plan} membership`,
-      };
-
-      if (forceRecurring) {
-        payfastData.subscription_type = '1';
-        payfastData.frequency = plan === 'annual' ? '6' : '3';
-        payfastData.cycles = '0';
-        payfastData.recurring_amount = payfastTotal.toFixed(2);
-      }
-
-      // Reuse the existing pending EFT payment row instead of duplicating
-      const { data: existingPending } = await supabase.from('payments')
-        .select('id').eq('user_id', user.id).eq('status', 'pending')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-
-      if (existingPending) {
-        await supabase.from('payments').update({
-          amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-          net_amount: baseAmount, payment_method: 'payfast',
-          payment_reference: paymentId, plan,
-        }).eq('id', existingPending.id);
-      } else {
-        await supabase.from('payments').insert({
-          user_id: user.id, amount: payfastTotal, transaction_fee: chargeFeeToClient ? payfastFee : 0,
-          net_amount: baseAmount, payment_method: 'payfast',
-          payment_reference: paymentId, status: 'pending', plan,
-        });
-      }
-
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = url;
-      Object.entries(payfastData).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden'; input.name = key; input.value = value;
-        form.appendChild(input);
-      });
-      document.body.appendChild(form);
-      form.submit();
+      await submitPayfastForm({ initialAmount: payfastTotal });
     } catch (err: any) {
       toast.error(err.message);
+      setPayfastLoading(false);
     }
-    setPayfastLoading(false);
   };
 
   const handleClaimMembership = async () => {
