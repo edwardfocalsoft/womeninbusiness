@@ -700,8 +700,6 @@ export default function Onboarding() {
                   Auto-renews {selectedPlan === 'annual' ? 'annually' : 'monthly'} — you'll be auto-debited on your renewal date.
                 </p>
               )}
-                </p>
-              )}
             </div>
           </div>
         )}
