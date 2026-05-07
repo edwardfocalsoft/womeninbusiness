@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ShieldCheck, CheckCircle2, XCircle, Clock, Calendar } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, Clock, Calendar, FileText } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 
 export default function AdminClaims() {
@@ -16,6 +16,7 @@ export default function AdminClaims() {
   const navigate = useNavigate();
   const [claims, setClaims] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewClaim, setReviewClaim] = useState<any>(null);
   const [startsAt, setStartsAt] = useState('');
@@ -27,16 +28,48 @@ export default function AdminClaims() {
   useEffect(() => { if (isAdmin) fetchData(); }, [isAdmin]);
 
   const fetchData = async () => {
-    const [claimsRes, profilesRes] = await Promise.all([
+    const [claimsRes, profilesRes, paymentsRes] = await Promise.all([
       supabase.from('membership_claims').select('*').order('created_at', { ascending: false }),
       supabase.from('profiles').select('user_id, full_name, business_name'),
+      supabase.from('payments')
+        .select('id, user_id, proof_of_payment_url, created_at')
+        .eq('payment_method', 'offline')
+        .not('proof_of_payment_url', 'is', null)
+        .order('created_at', { ascending: false }),
     ]);
     setClaims(claimsRes.data || []);
     setProfiles(profilesRes.data || []);
+    setPayments(paymentsRes.data || []);
     setLoading(false);
   };
 
   const getProfile = (userId: string) => profiles.find(p => p.user_id === userId);
+  const getProofPayment = (userId: string) => payments.find(p => p.user_id === userId && p.proof_of_payment_url);
+
+  const handleViewProof = async (claim: any) => {
+    const payment = getProofPayment(claim.user_id);
+    if (!payment?.proof_of_payment_url) {
+      toast.error('No proof of payment uploaded for this claim.');
+      return;
+    }
+
+    const proofWindow = window.open('', '_blank');
+    try {
+      const { data, error } = await supabase.storage
+        .from('proof-of-payment')
+        .createSignedUrl(payment.proof_of_payment_url, 60 * 5);
+      if (error) throw error;
+
+      if (proofWindow) {
+        proofWindow.location.href = data.signedUrl;
+      } else {
+        window.open(data.signedUrl, '_blank');
+      }
+    } catch (err: any) {
+      if (proofWindow) proofWindow.close();
+      toast.error(err.message || 'Could not open proof of payment.');
+    }
+  };
 
   const handleApprove = async () => {
     if (!reviewClaim || !startsAt || !expiresAt) { toast.error('Please set membership dates'); return; }
@@ -135,6 +168,11 @@ export default function AdminClaims() {
                   </div>
                   {claim.status === 'pending' && (
                     <div className="flex gap-2">
+                      {getProofPayment(claim.user_id) && (
+                        <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => handleViewProof(claim)}>
+                          <FileText className="w-3 h-3" /> View POP
+                        </Button>
+                      )}
                       <Button size="sm" className="text-xs gap-1" onClick={() => { setReviewClaim(claim); setStartsAt('2026-01-01'); setExpiresAt('2026-12-31'); }}>
                         <CheckCircle2 className="w-3 h-3" /> Approve
                       </Button>
