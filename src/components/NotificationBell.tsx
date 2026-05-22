@@ -15,20 +15,23 @@ export default function NotificationBell() {
 
   const fetchNotifications = async () => {
     if (!user) return;
+    if (typeof document !== 'undefined' && document.hidden) return;
     const { data } = await supabase
       .from('notifications')
-      .select('*')
+      .select('id, title, message, is_read, created_at')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(10);
     setNotifications(data || []);
   };
 
   useEffect(() => {
     fetchNotifications();
-    // Poll every 30s
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    // Poll every 5 minutes, and refresh when tab becomes visible
+    const interval = setInterval(fetchNotifications, 5 * 60 * 1000);
+    const onVis = () => { if (!document.hidden) fetchNotifications(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVis); };
   }, [user]);
 
   const unreadCount = notifications.filter(n => !n.is_read).length;

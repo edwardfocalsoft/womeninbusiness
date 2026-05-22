@@ -8,22 +8,22 @@ export default function AdminAnalytics() {
   const { isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [members, setMembers] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [resources, setResources] = useState<any[]>([]);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
-  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
+
+  const [counts, setCounts] = useState({ users: 0, events: 0, resources: 0, pendingMembers: 0 });
+  const [publishedAnn, setPublishedAnn] = useState(0);
 
   useEffect(() => {
     if (!isAdmin) return;
-    supabase.from('memberships').select('*').then(({ data }) => setMembers(data || []));
-    supabase.from('pending_members').select('id').then(({ data }) => setPendingMembers(data || []));
-    supabase.from('profiles').select('id').then(({ data }) => setUsers(data || []));
-    supabase.from('events').select('id').then(({ data }) => setEvents(data || []));
-    supabase.from('announcements').select('id, is_published').then(({ data }) => setAnnouncements(data || []));
-    supabase.from('resources').select('id').then(({ data }) => setResources(data || []));
+    // Only fetch fields actually used in calculations
+    supabase.from('memberships').select('status, expires_at, plan').then(({ data }) => setMembers(data || []));
+    // Use head+count for pure counts (no row payload)
+    supabase.from('pending_members').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, pendingMembers: count || 0 })));
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, users: count || 0 })));
+    supabase.from('events').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, events: count || 0 })));
+    supabase.from('resources').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, resources: count || 0 })));
+    supabase.from('announcements').select('id', { count: 'exact', head: true }).eq('is_published', true).then(({ count }) => setPublishedAnn(count || 0));
   }, [isAdmin]);
 
   const activeCount = members.filter(m => m.status === 'active' && new Date(m.expires_at) >= new Date()).length;
@@ -106,11 +106,11 @@ export default function AdminAnalytics() {
             <h3 className="font-bold mb-4">Platform Summary</h3>
             <div className="space-y-3">
               {[
-                { label: 'Total Registered Users', value: users.length },
-                { label: 'Total Members', value: members.length + pendingMembers.length },
-                { label: 'Total Events', value: events.length },
-                { label: 'Published Announcements', value: announcements.filter(a => a.is_published).length },
-                { label: 'Resources Available', value: resources.length },
+                { label: 'Total Registered Users', value: counts.users },
+                { label: 'Total Members', value: members.length + counts.pendingMembers },
+                { label: 'Total Events', value: counts.events },
+                { label: 'Published Announcements', value: publishedAnn },
+                { label: 'Resources Available', value: counts.resources },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                   <span className="text-sm text-muted-foreground">{item.label}</span>

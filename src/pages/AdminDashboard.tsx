@@ -25,11 +25,11 @@ export default function AdminDashboard() {
 
   const load = async () => {
     const [memRes, payRes, claimRes, evRes, complRes, recentMemRes, recentPayRes] = await Promise.all([
-      supabase.from('memberships').select('*'),
-      supabase.from('payments').select('*'),
-      supabase.from('membership_claims').select('id, status'),
-      supabase.from('events').select('id, title, start_date'),
-      supabase.from('compliance_records').select('completed'),
+      supabase.from('memberships').select('status, expires_at, plan, created_at'),
+      supabase.from('payments').select('status, amount, net_amount, created_at'),
+      supabase.from('membership_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('events').select('id', { count: 'exact', head: true }),
+      supabase.from('compliance_records').select('id', { count: 'exact', head: true }).eq('completed', true),
       supabase.from('memberships').select('created_at, plan').order('created_at', { ascending: false }).limit(5),
       supabase.from('payments').select('created_at, amount, status').order('created_at', { ascending: false }).limit(5),
     ]);
@@ -39,14 +39,14 @@ export default function AdminDashboard() {
     const now = new Date();
     const active = members.filter(m => m.status === 'active' && new Date(m.expires_at) >= now).length;
     const expired = members.filter(m => m.status === 'expired' || new Date(m.expires_at) < now).length;
-    const pendingClaims = (claimRes.data || []).filter(c => c.status === 'pending').length;
+    const pendingClaims = claimRes.count || 0;
     const pendingPayments = payments.filter(p => p.status === 'pending').length;
     const totalRevenue = payments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.net_amount || p.amount || 0), 0);
-    const complianceCompleted = (complRes.data || []).filter(c => c.completed).length;
+    const complianceCompleted = complRes.count || 0;
 
     setStats({
       totalMembers: members.length, active, expired, pendingClaims,
-      pendingPayments, totalRevenue, totalEvents: (evRes.data || []).length, complianceCompleted,
+      pendingPayments, totalRevenue, totalEvents: evRes.count || 0, complianceCompleted,
     });
 
     // 6-month growth

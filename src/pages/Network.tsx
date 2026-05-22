@@ -17,7 +17,7 @@ export default function Network() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from('profiles').select('*').not('business_name', 'is', null).then(({ data }) => {
+    supabase.from('profiles').select('id, full_name, business_name, industry, products_services, bio, avatar_url, location, website').not('business_name', 'is', null).then(({ data }) => {
       setProfiles((data as Profile[]) || []); setLoading(false);
     });
   }, []);
