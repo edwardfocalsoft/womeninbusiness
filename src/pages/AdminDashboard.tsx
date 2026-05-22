@@ -39,14 +39,14 @@ export default function AdminDashboard() {
     const now = new Date();
     const active = members.filter(m => m.status === 'active' && new Date(m.expires_at) >= now).length;
     const expired = members.filter(m => m.status === 'expired' || new Date(m.expires_at) < now).length;
-    const pendingClaims = (claimRes.data || []).filter(c => c.status === 'pending').length;
+    const pendingClaims = claimRes.count || 0;
     const pendingPayments = payments.filter(p => p.status === 'pending').length;
     const totalRevenue = payments.filter(p => p.status === 'completed').reduce((s, p) => s + Number(p.net_amount || p.amount || 0), 0);
-    const complianceCompleted = (complRes.data || []).filter(c => c.completed).length;
+    const complianceCompleted = complRes.count || 0;
 
     setStats({
       totalMembers: members.length, active, expired, pendingClaims,
-      pendingPayments, totalRevenue, totalEvents: (evRes.data || []).length, complianceCompleted,
+      pendingPayments, totalRevenue, totalEvents: evRes.count || 0, complianceCompleted,
     });
 
     // 6-month growth
