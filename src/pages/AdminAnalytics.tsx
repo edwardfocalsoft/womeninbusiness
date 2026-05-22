@@ -106,11 +106,11 @@ export default function AdminAnalytics() {
             <h3 className="font-bold mb-4">Platform Summary</h3>
             <div className="space-y-3">
               {[
-                { label: 'Total Registered Users', value: users.length },
-                { label: 'Total Members', value: members.length + pendingMembers.length },
-                { label: 'Total Events', value: events.length },
-                { label: 'Published Announcements', value: announcements.filter(a => a.is_published).length },
-                { label: 'Resources Available', value: resources.length },
+                { label: 'Total Registered Users', value: counts.users },
+                { label: 'Total Members', value: members.length + counts.pendingMembers },
+                { label: 'Total Events', value: counts.events },
+                { label: 'Published Announcements', value: publishedAnn },
+                { label: 'Resources Available', value: counts.resources },
               ].map(item => (
                 <div key={item.label} className="flex justify-between items-center py-2 border-b border-border last:border-0">
                   <span className="text-sm text-muted-foreground">{item.label}</span>
