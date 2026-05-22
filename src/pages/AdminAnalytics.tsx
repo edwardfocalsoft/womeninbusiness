@@ -8,13 +8,8 @@ export default function AdminAnalytics() {
   const { isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [members, setMembers] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [announcements, setAnnouncements] = useState<any[]>([]);
-  const [resources, setResources] = useState<any[]>([]);
 
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
-  const [pendingMembers, setPendingMembers] = useState<any[]>([]);
 
   const [counts, setCounts] = useState({ users: 0, events: 0, resources: 0, pendingMembers: 0 });
   const [publishedAnn, setPublishedAnn] = useState(0);
