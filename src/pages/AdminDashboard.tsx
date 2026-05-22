@@ -25,11 +25,11 @@ export default function AdminDashboard() {
 
   const load = async () => {
     const [memRes, payRes, claimRes, evRes, complRes, recentMemRes, recentPayRes] = await Promise.all([
-      supabase.from('memberships').select('*'),
-      supabase.from('payments').select('*'),
-      supabase.from('membership_claims').select('id, status'),
-      supabase.from('events').select('id, title, start_date'),
-      supabase.from('compliance_records').select('completed'),
+      supabase.from('memberships').select('status, expires_at, plan, created_at'),
+      supabase.from('payments').select('status, amount, net_amount, created_at'),
+      supabase.from('membership_claims').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('events').select('id', { count: 'exact', head: true }),
+      supabase.from('compliance_records').select('id', { count: 'exact', head: true }).eq('completed', true),
       supabase.from('memberships').select('created_at, plan').order('created_at', { ascending: false }).limit(5),
       supabase.from('payments').select('created_at, amount, status').order('created_at', { ascending: false }).limit(5),
     ]);
