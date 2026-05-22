@@ -16,14 +16,19 @@ export default function AdminAnalytics() {
   useEffect(() => { if (!authLoading && !isAdmin) navigate('/dashboard'); }, [isAdmin, authLoading]);
   const [pendingMembers, setPendingMembers] = useState<any[]>([]);
 
+  const [counts, setCounts] = useState({ users: 0, events: 0, resources: 0, pendingMembers: 0 });
+  const [publishedAnn, setPublishedAnn] = useState(0);
+
   useEffect(() => {
     if (!isAdmin) return;
-    supabase.from('memberships').select('*').then(({ data }) => setMembers(data || []));
-    supabase.from('pending_members').select('id').then(({ data }) => setPendingMembers(data || []));
-    supabase.from('profiles').select('id').then(({ data }) => setUsers(data || []));
-    supabase.from('events').select('id').then(({ data }) => setEvents(data || []));
-    supabase.from('announcements').select('id, is_published').then(({ data }) => setAnnouncements(data || []));
-    supabase.from('resources').select('id').then(({ data }) => setResources(data || []));
+    // Only fetch fields actually used in calculations
+    supabase.from('memberships').select('status, expires_at, plan').then(({ data }) => setMembers(data || []));
+    // Use head+count for pure counts (no row payload)
+    supabase.from('pending_members').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, pendingMembers: count || 0 })));
+    supabase.from('profiles').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, users: count || 0 })));
+    supabase.from('events').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, events: count || 0 })));
+    supabase.from('resources').select('id', { count: 'exact', head: true }).then(({ count }) => setCounts(c => ({ ...c, resources: count || 0 })));
+    supabase.from('announcements').select('id', { count: 'exact', head: true }).eq('is_published', true).then(({ count }) => setPublishedAnn(count || 0));
   }, [isAdmin]);
 
   const activeCount = members.filter(m => m.status === 'active' && new Date(m.expires_at) >= new Date()).length;
